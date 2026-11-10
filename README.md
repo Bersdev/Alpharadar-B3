@@ -126,6 +126,25 @@ Fundamentos como LPA, VPA e ROE ficam em `fallback_b3.json` e mudam a cada balan
 
 ---
 
+## Publicar na Railway
+
+O projeto tem dois serviços no mesmo repositório: a API Python e o site Next.js.
+
+**1. Serviço da API (`backend`)**
+1. Na Railway: **New Project → Deploy from GitHub repo** e escolha este repositório.
+2. Em **Settings → Source → Root Directory**, defina `/backend`. O `railway.json` já traz o comando de início e o teste de saúde (`/api/health`).
+3. Em **Settings → Networking**, clique em **Generate Domain** e copie o endereço (algo como `https://alpharadar-api.up.railway.app`).
+4. Em **Variables**, adicione (todas opcionais): `GROQ_API_KEY`, `GEMINI_API_KEY`, `NEWS_RSS_URLS` e as chaves de notícias do `backend/.env.example`. Domínios `*.up.railway.app` já são aceitos pelo CORS; para domínio próprio, defina `CORS_ORIGINS`.
+
+**2. Serviço do site (`frontend`)**
+1. No mesmo projeto: **New → GitHub Repo** (o mesmo repositório) e defina o Root Directory como `/frontend`.
+2. Em **Variables**, defina `NEXT_PUBLIC_API_URL` com o endereço da API do passo anterior, **sem barra no final**. Faça isso antes do build: o Next.js grava esse valor no código ao compilar.
+3. Gere o domínio público em **Settings → Networking**.
+
+Observações: o Yahoo Finance pode bloquear servidores em nuvem; nesse caso o app mostra os dados de reserva com o selo "Modo offline". A rota de IA aceita 8 perguntas por minuto por IP (`AI_RATE_LIMIT_PER_MINUTE`) para proteger a cota gratuita.
+
+---
+
 ## Stack
 
 **Backend:** Python, FastAPI, Uvicorn, pandas, NumPy, yfinance, requests, defusedxml, SDK da Anthropic (opcional)

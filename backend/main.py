@@ -18,6 +18,8 @@ Arquitetura em camadas:
 from __future__ import annotations
 
 import logging
+import os
+import time
 from typing import Any
 
 from dotenv import load_dotenv
@@ -45,13 +47,44 @@ app = FastAPI(
     ),
 )
 
-# CORS: permite que o frontend Next.js (porta 3000) chame esta API (porta 8000).
+# CORS: permite que o frontend chame esta API. Em produção, defina CORS_ORIGINS com o
+# endereço do site (várias URLs separadas por vírgula); os domínios *.up.railway.app
+# já são aceitos para facilitar a publicação na Railway.
+ORIGENS_PERMITIDAS = ["http://localhost:3000", "http://127.0.0.1:3000"] + [
+    o.strip().rstrip("/") for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=ORIGENS_PERMITIDAS,
+    allow_origin_regex=r"https://[a-z0-9-]+\.up\.railway\.app",
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Limite de uso da rota de IA (por IP): em um site público, sem isso qualquer pessoa
+# poderia esgotar a cota gratuita do provedor de IA.
+LIMITE_IA_POR_MINUTO = int(os.getenv("AI_RATE_LIMIT_PER_MINUTE", "8"))
+_acessos_ia: dict[str, list[float]] = {}
+
+
+def _ip_do_cliente(request: Request) -> str:
+    # Atrás do proxy da Railway o IP real vem em X-Forwarded-For (primeiro endereço).
+    encaminhado = request.headers.get("x-forwarded-for", "")
+    return encaminhado.split(",")[0].strip() or (request.client.host if request.client else "desconhecido")
+
+
+def _checar_limite_ia(request: Request) -> None:
+    agora = time.time()
+    ip = _ip_do_cliente(request)
+    recentes = [t for t in _acessos_ia.get(ip, []) if agora - t < 60]
+    if len(recentes) >= LIMITE_IA_POR_MINUTO:
+        raise HTTPException(status_code=429, detail="Muitas perguntas seguidas. Aguarde um minuto e tente de novo.")
+    recentes.append(agora)
+    _acessos_ia[ip] = recentes
+    if len(_acessos_ia) > 5000:  # evita crescer sem limite
+        for k in [k for k, v in _acessos_ia.items() if not v or agora - v[-1] > 60]:
+            _acessos_ia.pop(k, None)
 
 
 @app.exception_handler(Exception)
@@ -251,6 +284,7 @@ def radar_noticias(sentimento: str | None = Query(None, pattern="^(Positivo|Neut
 
 
 @app.post("/api/ai/analyze", tags=["Inteligência Artificial"])
-def analisar_ia(body: PerguntaIA) -> dict[str, Any]:
+def analisar_ia(body: PerguntaIA, request: Request) -> dict[str, Any]:
     """Copiloto: risco, histórico, efeito de juros e comparações (motor de regras ou Claude)."""
+    _checar_limite_ia(request)
     return ai_analyst.analisar(body.pergunta, body.ticker)
