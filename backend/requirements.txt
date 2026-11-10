@@ -1,0 +1,21 @@
+# ============================================================
+# AlphaRadar B3 — dependências do backend (Python 3.11+)
+# Instale com:  pip install -r requirements.txt
+# ============================================================
+
+# --- Servidor web ---
+fastapi>=0.115          # framework da API REST (gera /docs automaticamente)
+uvicorn>=0.30          # servidor ASGI que executa o FastAPI
+
+# --- Dados e matemática ---
+pandas>=2.2             # tabelas (DataFrames) para histórico e simulações
+numpy>=1.26             # cálculos vetoriais
+
+# --- Coleta de dados de mercado ---
+yfinance>=0.2.50        # cotações e dividendos da B3 (tickers com sufixo .SA)
+requests>=2.32          # chamadas HTTP: API SGS do Banco Central e brapi.dev
+defusedxml>=0.7         # leitura SEGURA de feeds RSS (XML) externos
+
+# --- Configuração e IA ---
+python-dotenv>=1.0      # lê o arquivo .env (chaves de API opcionais)
+anthropic>=0.70         # SDK oficial da Anthropic (opcional: só usado se houver ANTHROPIC_API_KEY)
