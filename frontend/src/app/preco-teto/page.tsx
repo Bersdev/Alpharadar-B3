@@ -52,6 +52,7 @@ export default function PrecoTetoPage() {
   return (
     <>
       <PageHeader
+        icon="scales"
         title="Laboratório de preço-teto"
         description="Defina quanto de dividendo você exige e quanto espera de crescimento. O motor Python recalcula Bazin, preço-teto projetivo, Graham e o Score Alpha de todos os ativos."
       />
@@ -117,7 +118,7 @@ export default function PrecoTetoPage() {
       {erro && <ErrorState message={erro} onRetry={() => setTentativa((n) => n + 1)} />}
       {!dados && !erro && <Loading />}
       {dados && (
-        <div className="scroll-thin overflow-x-auto rounded-2xl border border-line bg-surface">
+        <div className="card scroll-thin overflow-x-auto">
           <table className="w-full min-w-[920px] text-sm">
             <thead className="text-left text-xs text-muted">
               <tr className="border-b border-line">

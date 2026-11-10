@@ -51,6 +51,7 @@ export default function RendaFixaPage() {
   return (
     <>
       <PageHeader
+        icon="bank"
         title="LCI, LCA, CDB ou dividendos?"
         description="Compare quanto sobra no bolso depois do Imposto de Renda. LCI e LCA são isentas para pessoa física; CDB e Tesouro pagam IR regressivo de 22,5% a 15%."
         aside={overview && (
@@ -167,7 +168,7 @@ function CampoNumero({ rotulo, valor, onChange, step }: { rotulo: string; valor:
         step={step}
         value={valor}
         onChange={(ev) => onChange(Math.max(0, Number(ev.target.value) || 0))}
-        className="w-full rounded-md border border-line bg-bg px-3 py-2 text-text"
+        className="w-full rounded-xl border border-line bg-raised px-3 py-2 text-text"
       />
     </label>
   );

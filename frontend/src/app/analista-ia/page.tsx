@@ -47,6 +47,7 @@ export default function AnalistaIAPage() {
   return (
     <>
       <PageHeader
+        icon="robot"
         title="Analista IA"
         description="Pergunte sobre risco, histórico, efeito dos juros ou compare renda fixa com ações e FIIs. As contas são feitas pelo motor Python; a IA só interpreta os números."
         aside={saude && (
@@ -67,7 +68,7 @@ export default function AnalistaIAPage() {
             onChange={(e) => setPergunta(e.target.value)}
             placeholder="Ex.: Avalie o histórico e o risco de TAEE11"
             maxLength={1000}
-            className="min-w-0 flex-1 rounded-lg border border-line bg-bg px-4 py-3 text-[15px] text-text placeholder:text-muted"
+            className="min-w-0 flex-1 rounded-xl border border-line bg-raised px-4 py-3 text-[15px] text-text placeholder:text-muted"
           />
           <button
             type="submit"

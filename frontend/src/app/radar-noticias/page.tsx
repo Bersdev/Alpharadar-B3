@@ -43,6 +43,7 @@ export default function RadarNoticiasPage() {
   return (
     <>
       <PageHeader
+        icon="news"
         title="Radar de notícias"
         description="Cada evento econômico traduzido em consequência: quais ações, FIIs e produtos de renda fixa ganham ou perdem com ele."
       />
@@ -123,7 +124,7 @@ function CartaoNoticia({ n }: { n: Noticia }) {
   const perdem = n.ativos_afetados.filter((a) => a.efeito === "prejudicado");
   const nivel = { baixo: 1, medio: 2, alto: 3 }[n.impacto];
   return (
-    <article className="relative overflow-hidden rounded-2xl border border-line bg-surface p-5 pl-6">
+    <article className="card relative overflow-hidden p-5 pl-6">
       <span className={`absolute inset-y-0 left-0 w-1 ${BARRA_SENT[n.sentimento_rotulo]}`} aria-hidden="true" />
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
         <span className={`font-semibold ${COR_SENT[n.sentimento_rotulo]}`}>{n.sentimento_rotulo}</span>

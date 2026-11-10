@@ -1,22 +1,39 @@
 @import "tailwindcss";
 
 /*
-  AlphaRadar B3 — tokens visuais
-  Preto neutro com cartões de borda fina; azul como cor de ação;
-  verde/vermelho para alta/baixa e laranja para alertas.
+  AlphaRadar B3 — tokens visuais, em dois temas.
+  Claro: fundo cinza-gelo com cartões brancos e sombra suave.
+  Escuro: tema OLED, preto absoluto (pixels apagados em telas OLED) com cartões quase pretos.
+  O tema vem do atributo data-theme no <html> (definido antes da pintura, sem "piscar").
 */
 :root {
-  --bg: #0a0a0b;
-  --surface: #121213;
-  --raised: #1a1a1c;
-  --line: #262628;
-  --text: #f4f4f5;
-  --muted: #8e8e95;
-  --brand: #3b6cff;
-  --brand-soft: #3b6cff22;
+  --bg: #f1f1f4;
+  --surface: #ffffff;
+  --raised: #f4f4f7;
+  --line: #e7e7ec;
+  --text: #121216;
+  --muted: #6e6e7a;
+  --brand: #2f64ff;
+  --brand-soft: #2f64ff1f;
+  --up: #15a34a;
+  --down: #dc3545;
+  --warn: #d97706;
+  --shadow: 0 1px 2px rgb(20 20 40 / 0.04), 0 6px 20px rgb(20 20 40 / 0.05);
+}
+
+:root[data-theme="dark"] {
+  --bg: #000000;
+  --surface: #0b0b0c;
+  --raised: #151517;
+  --line: #1f1f23;
+  --text: #f5f5f6;
+  --muted: #8c8c95;
+  --brand: #4c7dff;
+  --brand-soft: #4c7dff2b;
   --up: #22c55e;
-  --down: #ef4444;
+  --down: #f0524f;
   --warn: #f59e0b;
+  --shadow: none;
 }
 
 @theme inline {
@@ -35,6 +52,9 @@
 }
 
 html {
+  color-scheme: light;
+}
+html[data-theme="dark"] {
   color-scheme: dark;
 }
 
@@ -47,7 +67,15 @@ body {
 
 /* Números e títulos grandes: peso forte, tracking apertado. */
 .wide {
-  letter-spacing: -0.025em;
+  letter-spacing: -0.03em;
+}
+
+/* Cartões do layout: borda fina + sombra (some no tema escuro, onde só a borda separa). */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 1.25rem;
+  box-shadow: var(--shadow);
 }
 
 :focus-visible {
@@ -77,8 +105,18 @@ body {
   transform-origin: 50% 50%;
 }
 
+/* Ícones 3D: leve flutuação ao passar o mouse no cartão. */
+.icon3d {
+  transition: transform 0.25s ease;
+  filter: drop-shadow(0 6px 8px rgb(0 0 0 / 0.12));
+}
+.card:hover .icon3d {
+  transform: translateY(-3px) rotate(-3deg);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tape-track, .radar-sweep { animation: none; }
+  .icon3d, .card:hover .icon3d { transition: none; transform: none; }
 }
 
 input[type="range"] {

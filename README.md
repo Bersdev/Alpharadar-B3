@@ -153,3 +153,9 @@ Observações: o Yahoo Finance pode bloquear servidores em nuvem; nesse caso o a
 **Frontend:** Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4, Recharts, lucide-react
 
 Para entender cada arquivo do backend em detalhe, leia o [GUIA_ESTUDO_ENTREVISTA.md](GUIA_ESTUDO_ENTREVISTA.md).
+
+---
+
+## Créditos
+
+Icones 3D: [Fluent Emoji](https://github.com/microsoft/fluentui-emoji) da Microsoft, licença MIT. Fontes de dados: veja a seção "Fontes de dados".

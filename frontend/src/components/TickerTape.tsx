@@ -9,7 +9,7 @@ import { Delta } from "./ui";
 export function TickerTape() {
   const { data } = useApi<Overview>("/api/overview");
   if (!data) {
-    return <div className="h-9 border-b border-line bg-surface/40" aria-hidden="true" />;
+    return <div className="card h-9" aria-hidden="true" />;
   }
   const m = data.macro;
   const itens = [
@@ -41,7 +41,7 @@ export function TickerTape() {
     });
 
   return (
-    <div className="overflow-hidden border-b border-line bg-surface/40 text-[13px]" aria-label="Cotações em destaque">
+    <div className="card overflow-hidden text-[13px]" aria-label="Cotações em destaque">
       {/* Conteúdo duplicado para a rolagem infinita sem "salto". */}
       <div className="tape-track flex w-max whitespace-nowrap py-2">
         {linha("a")}

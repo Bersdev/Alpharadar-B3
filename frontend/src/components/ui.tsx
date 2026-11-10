@@ -1,15 +1,43 @@
 // Peças visuais reutilizadas em todas as páginas.
+import Image from "next/image";
 import Link from "next/link";
 import { AlertTriangle, Loader2, WifiOff } from "lucide-react";
 import type { ReactNode } from "react";
 import { fmtSinal, type Fonte } from "@/lib/api";
 
-export function PageHeader({ title, description, aside }: { title: string; description: string; aside?: ReactNode }) {
+/** Ícone 3D decorativo (Fluent Emoji 3D, licença MIT). Os arquivos ficam em public/icons. */
+export function Icon3D({ name, size = 72, className = "" }: { name: string; size?: number; className?: string }) {
   return (
-    <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
-      <div className="max-w-2xl">
-        <h1 className="wide text-2xl font-semibold text-text md:text-[1.75rem] md:leading-tight">{title}</h1>
-        <p className="mt-1.5 text-[14px] leading-relaxed text-muted">{description}</p>
+    <Image
+      src={`/icons/${name}.png`}
+      alt=""
+      aria-hidden="true"
+      width={size}
+      height={size}
+      className={`icon3d pointer-events-none select-none ${className}`}
+    />
+  );
+}
+
+export function PageHeader({
+  title,
+  description,
+  aside,
+  icon,
+}: {
+  title: string;
+  description: string;
+  aside?: ReactNode;
+  icon?: string;
+}) {
+  return (
+    <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
+      <div className="flex items-center gap-4">
+        {icon && <Icon3D name={icon} size={64} className="hidden sm:block" />}
+        <div className="max-w-2xl">
+          <h1 className="wide text-2xl font-semibold text-text md:text-[1.75rem] md:leading-tight">{title}</h1>
+          <p className="mt-1 text-[14px] leading-relaxed text-muted">{description}</p>
+        </div>
       </div>
       {aside}
     </header>
@@ -28,7 +56,7 @@ export function Panel({
   action?: ReactNode;
 }) {
   return (
-    <section className={`rounded-2xl border border-line bg-surface p-5 ${className}`}>
+    <section className={`card p-5 ${className}`}>
       {(title || action) && (
         <div className="mb-4 flex items-center justify-between gap-3">
           {title && <h2 className="text-[15px] font-semibold text-text">{title}</h2>}
@@ -106,7 +134,7 @@ export function Loading({ label = "Buscando dados no motor Python" }: { label?: 
 
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
-    <div className="flex flex-col items-start gap-3 rounded-2xl border border-down/40 bg-down/5 p-5 text-sm" role="alert">
+    <div className="flex flex-col items-start gap-3 rounded-2xl border border-down/40 bg-down/10 p-5 text-sm" role="alert">
       <div className="flex items-center gap-2 font-semibold text-down">
         <AlertTriangle size={16} /> Backend indisponível
       </div>
