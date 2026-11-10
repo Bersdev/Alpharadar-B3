@@ -48,6 +48,9 @@ export interface Ativo {
   ticker: string;
   nome: string;
   tipo: "acao" | "fii";
+  mercado: "B3" | "EUA";
+  moeda: "BRL" | "USD";
+  cotacao_brl?: number;
   setor: string;
   cotacao: number;
   variacao_dia: number;
@@ -131,6 +134,8 @@ export interface ResumoAtivo {
   ticker: string;
   nome: string;
   tipo: string;
+  mercado?: "B3" | "EUA";
+  moeda?: "BRL" | "USD";
   cotacao: number;
   variacao_dia: number;
 }
@@ -229,6 +234,10 @@ const num = (casas: number) =>
   new Intl.NumberFormat("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas });
 
 export const fmtBRL = (v: number | null | undefined) => (v == null ? "—" : brl.format(v));
+const usd = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "USD" });
+/** Preço na moeda do ativo: R$ para a B3, US$ para os EUA. */
+export const fmtPreco = (v: number | null | undefined, moeda: string = "BRL") =>
+  v == null ? "—" : moeda === "USD" ? usd.format(v) : brl.format(v);
 export const fmtNum = (v: number | null | undefined, casas = 2) => (v == null ? "—" : num(casas).format(v));
 export const fmtPct = (v: number | null | undefined, casas = 1) => (v == null ? "—" : `${num(casas).format(v)}%`);
 export const fmtSinal = (v: number | null | undefined, casas = 2) => {

@@ -240,13 +240,23 @@ def simular_renda_fixa(p: ParametrosSimulacao) -> dict[str, Any]:
     }
 
 
-def premio_de_risco(dy_projetado_pct: float, taxa_lci_pct_cdi: float, cdi_anual: float) -> dict[str, Any]:
-    """
-    Índice de Prêmio de Risco: o dividend yield (isento) de uma ação/FII
-    compensa o risco de renda variável frente a uma LCI (isenta e segura)?
+IR_RETIDO_DIVIDENDOS_EUA: float = 0.30  # retenção na fonte para investidor brasileiro
 
-    Prêmio (p.p.) = DY projetado − rendimento anual da LCI
+
+def premio_de_risco(
+    dy_projetado_pct: float, taxa_lci_pct_cdi: float, cdi_anual: float, mercado: str = "B3"
+) -> dict[str, Any]:
     """
+    Índice de Prêmio de Risco: o dividend yield de uma ação/FII compensa o
+    risco de renda variável frente a uma LCI (isenta e segura)?
+
+    Prêmio (p.p.) = DY líquido projetado − rendimento anual da LCI
+
+    Dividendos da B3 são isentos para pessoa física; os dos EUA sofrem 30% de
+    IR retido na fonte, então comparamos o DY já líquido desse imposto.
+    """
+    if mercado == "EUA":
+        dy_projetado_pct = dy_projetado_pct * (1 - IR_RETIDO_DIVIDENDOS_EUA)
     rendimento_lci = cdi_anual * 100 * taxa_lci_pct_cdi / 100
     premio = dy_projetado_pct - rendimento_lci
     if premio >= 2:

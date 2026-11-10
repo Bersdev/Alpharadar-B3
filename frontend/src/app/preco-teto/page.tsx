@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowDownUp, RotateCcw } from "lucide-react";
-import { api, fmtBRL, fmtPct, type AtivoAvaliado } from "@/lib/api";
+import { api, fmtPct, fmtPreco, type AtivoAvaliado } from "@/lib/api";
 import { Disclaimer, ErrorState, Loading, PageHeader, Panel, ScorePill } from "@/components/ui";
 
 type Ordem = "score" | "margem_projetiva" | "dy_projetado" | "ticker";
-type Filtro = "todos" | "acao" | "fii";
+type Filtro = "todos" | "acao" | "fii" | "eua";
 
 export default function PrecoTetoPage() {
   const [yieldPct, setYieldPct] = useState<number | null>(null); // null = padrão 6% ações / 8% FIIs
@@ -41,7 +41,9 @@ export default function PrecoTetoPage() {
 
   const linhas = useMemo(() => {
     if (!dados) return [];
-    const filtradas = dados.filter((a) => filtro === "todos" || a.tipo === filtro);
+    const filtradas = dados.filter((a) =>
+      filtro === "todos" ? true : filtro === "eua" ? a.mercado === "EUA" : a.tipo === filtro && a.mercado === "B3",
+    );
     const valor = (a: AtivoAvaliado) =>
       ordem === "score" ? a.score.total : ordem === "ticker" ? 0 : (a[ordem] ?? -Infinity);
     return [...filtradas].sort((a, b) => (ordem === "ticker" ? a.ticker.localeCompare(b.ticker) : valor(b) - valor(a)));
@@ -95,7 +97,7 @@ export default function PrecoTetoPage() {
 
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div className="inline-flex rounded-lg border border-line p-0.5 text-sm" role="tablist">
-          {(["todos", "acao", "fii"] as Filtro[]).map((f) => (
+          {(["todos", "acao", "fii", "eua"] as Filtro[]).map((f) => (
             <button
               key={f}
               role="tab"
@@ -103,7 +105,7 @@ export default function PrecoTetoPage() {
               onClick={() => setFiltro(f)}
               className={`rounded-md px-3 py-1.5 ${filtro === f ? "bg-raised text-text" : "text-muted hover:text-text"}`}
             >
-              {f === "todos" ? "Todos" : f === "acao" ? "Ações" : "FIIs"}
+              {f === "todos" ? "Todos" : f === "acao" ? "Ações B3" : f === "fii" ? "FIIs" : "Ações EUA"}
             </button>
           ))}
         </div>
@@ -144,15 +146,15 @@ export default function PrecoTetoPage() {
                     </Link>
                     <div className="text-xs text-muted">{a.setor}</div>
                   </td>
-                  <td className="px-4 py-3 text-right">{fmtBRL(a.cotacao)}</td>
-                  <td className="px-4 py-3 text-right text-muted">{fmtBRL(a.preco_teto_bazin)}</td>
-                  <td className="px-4 py-3 text-right font-medium">{fmtBRL(a.preco_teto_projetivo)}</td>
-                  <td className="px-4 py-3 text-right text-muted">{fmtBRL(a.preco_justo_graham)}</td>
+                  <td className="px-4 py-3 text-right">{fmtPreco(a.cotacao, a.moeda)}</td>
+                  <td className="px-4 py-3 text-right text-muted">{fmtPreco(a.preco_teto_bazin, a.moeda)}</td>
+                  <td className="px-4 py-3 text-right font-medium">{fmtPreco(a.preco_teto_projetivo, a.moeda)}</td>
+                  <td className="px-4 py-3 text-right text-muted">{fmtPreco(a.preco_justo_graham, a.moeda)}</td>
                   <td className="px-4 py-3 text-right">
                     <Margem valor={a.margem_projetiva} />
                   </td>
                   <td className="px-4 py-3 text-right">
-                    {fmtBRL(a.dpa_projetado)}
+                    {fmtPreco(a.dpa_projetado, a.moeda)}
                     <div className="text-xs text-muted">{fmtPct(a.dy_projetado)} ao ano</div>
                   </td>
                   <td className="px-4 py-3 text-right">

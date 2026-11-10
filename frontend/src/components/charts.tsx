@@ -20,7 +20,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { fmtBRL, fmtData, type Pilar, type SimulacaoRF } from "@/lib/api";
+import { fmtBRL, fmtData, fmtPreco, type Pilar, type SimulacaoRF } from "@/lib/api";
 
 const eixo = { stroke: "var(--muted)", fontSize: 11, tickLine: false, axisLine: false } as const;
 const tooltipStyle = {
@@ -29,7 +29,7 @@ const tooltipStyle = {
   itemStyle: { color: "var(--text)" },
 };
 
-export function PriceChart({ dados }: { dados: { data: string; fechamento: number }[] }) {
+export function PriceChart({ dados, moeda = "BRL" }: { dados: { data: string; fechamento: number }[]; moeda?: string }) {
   const subiu = dados.length > 1 && dados[dados.length - 1].fechamento >= dados[0].fechamento;
   const cor = subiu ? "var(--up)" : "var(--down)";
   return (
@@ -44,20 +44,20 @@ export function PriceChart({ dados }: { dados: { data: string; fechamento: numbe
         <CartesianGrid stroke="var(--line)" strokeDasharray="2 4" vertical={false} />
         <XAxis dataKey="data" {...eixo} tickFormatter={fmtData} minTickGap={40} />
         <YAxis {...eixo} domain={["auto", "auto"]} width={52} tickFormatter={(v: number) => v.toFixed(0)} />
-        <Tooltip {...tooltipStyle} labelFormatter={(l) => new Date(String(l)).toLocaleDateString("pt-BR")} formatter={(v) => [fmtBRL(Number(v)), "Fechamento"]} />
+        <Tooltip {...tooltipStyle} labelFormatter={(l) => new Date(String(l)).toLocaleDateString("pt-BR")} formatter={(v) => [fmtPreco(Number(v), moeda), "Fechamento"]} />
         <Area type="monotone" dataKey="fechamento" stroke={cor} strokeWidth={1.8} fill="url(#precoFill)" />
       </AreaChart>
     </ResponsiveContainer>
   );
 }
 
-export function DividendChart({ dados }: { dados: { data: string; valor: number }[] }) {
+export function DividendChart({ dados, moeda = "BRL" }: { dados: { data: string; valor: number }[]; moeda?: string }) {
   return (
     <ResponsiveContainer width="100%" height={150}>
       <BarChart data={dados} margin={{ left: 0, right: 8, top: 4, bottom: 0 }}>
         <XAxis dataKey="data" {...eixo} tickFormatter={(d: string) => new Date(d).toLocaleDateString("pt-BR", { month: "short", year: "2-digit" })} minTickGap={24} />
         <YAxis {...eixo} width={52} tickFormatter={(v: number) => v.toFixed(2)} />
-        <Tooltip {...tooltipStyle} cursor={{ fill: "var(--raised)" }} labelFormatter={(l) => new Date(String(l)).toLocaleDateString("pt-BR")} formatter={(v) => [fmtBRL(Number(v)), "Provento"]} />
+        <Tooltip {...tooltipStyle} cursor={{ fill: "var(--raised)" }} labelFormatter={(l) => new Date(String(l)).toLocaleDateString("pt-BR")} formatter={(v) => [fmtPreco(Number(v), moeda), "Provento"]} />
         <Bar dataKey="valor" fill="var(--brand)" radius={[3, 3, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>

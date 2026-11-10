@@ -1,6 +1,6 @@
 # AlphaRadar B3
 
-Plataforma open-source de análise de investimentos brasileiros — ações da B3, fundos imobiliários (FIIs), LCI, LCA, CDB e Tesouro Selic — com **motor financeiro escrito em Python** e dashboard web em Next.js.
+Plataforma open-source de análise de investimentos — ações da B3, fundos imobiliários (FIIs), ações dos EUA (NVIDIA, Microsoft, Apple e outras), LCI, LCA, CDB e Tesouro Selic — com **motor financeiro escrito em Python** e dashboard web em Next.js.
 
 O sistema transforma dados públicos de mercado em respostas rápidas:
 
@@ -36,7 +36,7 @@ O sistema transforma dados públicos de mercado em respostas rápidas:
 
 **Princípio central:** toda conta acontece no Python. O frontend só exibe resultados prontos — o que deixa as regras de negócio testáveis, documentadas em `/docs` e independentes da interface.
 
-**Resiliência:** se o Yahoo Finance, a brapi.dev ou o Banco Central falharem, o backend usa `data/fallback_b3.json` (16 ativos e 12 notícias de demonstração) e o frontend mostra o selo "Modo offline". Nenhuma falha externa vira erro 500.
+**Resiliência:** se o Yahoo Finance, a brapi.dev ou o Banco Central falharem, o backend usa `data/fallback_b3.json` (26 ativos e 12 notícias de demonstração) e o frontend mostra o selo "Modo offline". Nenhuma falha externa vira erro 500.
 
 ---
 
@@ -92,7 +92,7 @@ Copie `backend/.env.example` para `backend/.env`:
 | Método | Rota | Descrição |
 |---|---|---|
 | GET | `/api/overview` | Selic, CDI, IPCA, Ibovespa, dólar, maiores altas e baixas, cenário Bolsa × LCI/LCA e manchetes urgentes |
-| GET | `/api/assets` | Os 16 ativos com Score Alpha, preço-teto Bazin, projetivo e Graham |
+| GET | `/api/assets` | Os 26 ativos (16 da B3 e 10 dos EUA; filtre com `?mercado=B3` ou `?mercado=EUA`) com Score Alpha, preço-teto Bazin, projetivo e Graham |
 | GET | `/api/assets/{ticker}` | Dossiê: histórico de preços e dividendos, risco, score detalhado e notícias |
 | POST | `/api/simulate/valuation` | Recalcula preço-teto e score com yield, payout e crescimento escolhidos |
 | POST | `/api/simulate/fixed-income` | LCI/LCA × CDB × Tesouro Selic × dividendos, mês a mês |

@@ -133,14 +133,14 @@ def visao_geral() -> dict[str, Any]:
     lista = market_service.listar_ativos()
     ativos = lista["ativos"]
     ordenados = sorted(ativos, key=lambda a: a["variacao_dia"], reverse=True)
-    resumo_ativo = lambda a: {k: a[k] for k in ("ticker", "nome", "tipo", "cotacao", "variacao_dia")}  # noqa: E731
+    resumo_ativo = lambda a: {k: a[k] for k in ("ticker", "nome", "tipo", "mercado", "moeda", "cotacao", "variacao_dia")}  # noqa: E731
 
     # Cenário: quanto rende a renda fixa isenta frente aos dividendos da bolsa?
     cdi = macro["cdi_anual"]
     lci_92 = cdi * 0.92
     avaliados = _ativos_avaliados()
     dy_fiis = [a["dy_projetado"] for a in avaliados if a["tipo"] == "fii" and a["dy_projetado"]]
-    dy_acoes = [a["dy_projetado"] for a in avaliados if a["tipo"] == "acao" and a["dy_projetado"]]
+    dy_acoes = [a["dy_projetado"] for a in avaliados if a["tipo"] == "acao" and a["mercado"] == "B3" and a["dy_projetado"]]
     dy_medio_fii = sum(dy_fiis) / len(dy_fiis) if dy_fiis else 0
     dy_medio_acao = sum(dy_acoes) / len(dy_acoes) if dy_acoes else 0
     if macro["juro_real"] >= 6:
@@ -174,12 +174,15 @@ def visao_geral() -> dict[str, Any]:
 @app.get("/api/assets", tags=["Ativos"])
 def listar_ativos(
     tipo: str | None = Query(None, pattern="^(acao|fii)$"),
+    mercado: str | None = Query(None, pattern="^(B3|EUA)$"),
     yield_desejado: float | None = Query(None, ge=0.01, le=0.30, description="Vazio = 6% ações / 8% FIIs"),
 ) -> dict[str, Any]:
     """Ações e FIIs já calculados: Score Alpha, Preço-Teto Bazin, Projetivo e Graham."""
     ativos = _ativos_avaliados(yield_desejado=yield_desejado)
     if tipo:
         ativos = [a for a in ativos if a["tipo"] == tipo]
+    if mercado:
+        ativos = [a for a in ativos if a["mercado"] == mercado]
     ativos.sort(key=lambda a: a["score"]["total"], reverse=True)
     return {"ativos": ativos, "total": len(ativos), "fonte": market_service.listar_ativos()["fonte"]}
 
@@ -199,7 +202,7 @@ def detalhe_ativo(ticker: str) -> dict[str, Any]:
         "valuation": av,
         "historico": hist,
         "risco": market_service.estatisticas_risco(hist["precos"]),
-        "premio_lci": fixed_income.premio_de_risco(av["dy_projetado"] or 0, 92, macro["cdi_anual"] / 100),
+        "premio_lci": fixed_income.premio_de_risco(av["dy_projetado"] or 0, 92, macro["cdi_anual"] / 100, ativo["mercado"]),
         "noticias": news_service.noticias_do_ativo(ativo["ticker"]),
         "sentimento_noticias": sent,
     }

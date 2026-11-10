@@ -69,7 +69,7 @@ export function Topbar() {
             setAviso(false);
           }}
           list="tickers-monitorados"
-          placeholder="Buscar ativo, ex.: PETR4"
+          placeholder="Buscar: PETR4, NVDA…"
           autoComplete="off"
           className="w-full rounded-lg border border-line bg-surface py-2 pl-9 pr-12 text-sm placeholder:text-muted"
         />
@@ -83,7 +83,7 @@ export function Topbar() {
         </datalist>
         {aviso && (
           <p role="alert" className="absolute left-0 top-full z-10 mt-1 rounded-md border border-line bg-raised px-3 py-1.5 text-xs text-muted">
-            Ativo não monitorado. Escolha um dos 16 da lista.
+            Ativo não monitorado. Escolha um da lista (B3 ou EUA).
           </p>
         )}
       </form>

@@ -57,21 +57,43 @@ Regras:
 # Utilidades de interpretação da pergunta
 # ---------------------------------------------------------------------------
 
+# Nomes populares das empresas dos EUA -> ticker (quem pergunta escreve "Nvidia", não "NVDA").
+APELIDOS_EUA: dict[str, str] = {
+    "nvidia": "NVDA", "microsoft": "MSFT", "apple": "AAPL", "google": "GOOGL", "alphabet": "GOOGL",
+    "amazon": "AMZN", "tesla": "TSLA", "coca-cola": "KO", "coca cola": "KO", "jpmorgan": "JPM",
+    "jp morgan": "JPM", "johnson": "JNJ", "facebook": "META",
+}
+
+
 def _tickers_na_pergunta(pergunta: str) -> list[str]:
+    """
+    Encontra os ativos citados: tickers da B3 (PETR4), tickers dos EUA escritos
+    em maiúsculas (NVDA, KO) e nomes populares (Nvidia, Apple).
+    Tickers dos EUA exigem maiúsculas para "meta" (objetivo) não virar META.
+    """
     conhecidos = set(market_service.tickers_monitorados())
-    candidatos = re.findall(r"\b([A-Za-z]{4}\d{1,2})\b", pergunta)
+    achados: list[tuple[int, str]] = []
+    for m in re.finditer(r"\b([A-Za-z]{4}\d{1,2})\b", pergunta):
+        achados.append((m.start(), m.group(1).upper()))
+    for m in re.finditer(r"\b([A-Z]{1,5})\b", pergunta):
+        achados.append((m.start(), m.group(1)))
+    minusculo = pergunta.lower()
+    for nome, ticker in APELIDOS_EUA.items():
+        pos = minusculo.find(nome)
+        if pos >= 0:
+            achados.append((pos, ticker))
     vistos: list[str] = []
-    for c in candidatos:
-        c = c.upper()
-        if c in conhecidos and c not in vistos:
-            vistos.append(c)
+    for _, t in sorted(achados):
+        if t in conhecidos and t not in vistos:
+            vistos.append(t)
     return vistos
 
 
-def _fmt_moeda(v: float | None) -> str:
+def _fmt_moeda(v: float | None, moeda: str = "BRL") -> str:
     if v is None:
         return "n/d"
-    return "R$ " + f"{v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    simbolo = "US$ " if moeda == "USD" else "R$ "
+    return simbolo + f"{v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
 def _fmt_num(v: float | None, casas: int = 2) -> str:
@@ -102,8 +124,10 @@ def relatorio_ativo(ticker: str) -> dict[str, Any]:
     risco = market_service.estatisticas_risco(hist["precos"])
     noticias = news_service.noticias_do_ativo(ativo["ticker"])
     macro = market_service.indicadores_macro()
-    premio = fixed_income.premio_de_risco(av["dy_projetado"] or 0, 92, macro["cdi_anual"] / 100)
+    premio = fixed_income.premio_de_risco(av["dy_projetado"] or 0, 92, macro["cdi_anual"] / 100, ativo.get("mercado", "B3"))
     eh_fii = ativo.get("tipo") == "fii"
+    moeda = ativo.get("moeda", "BRL")
+    eua = ativo.get("mercado") == "EUA"
 
     fortes: list[str] = []
     atencao: list[str] = []
@@ -135,15 +159,15 @@ def relatorio_ativo(ticker: str) -> dict[str, Any]:
     secoes = [
         {"titulo": "Histórico (12 meses)", "itens": [
             f"Retorno da cotação no período: {_fmt_pct(risco['retorno_periodo'])}.",
-            f"Proventos pagos nos últimos 12 meses: {_fmt_moeda(av['dpa_12m'])} por {'cota' if eh_fii else 'ação'} "
+            f"Proventos pagos nos últimos 12 meses: {_fmt_moeda(moeda=moeda, v=av['dpa_12m'])} por {'cota' if eh_fii else 'ação'} "
             f"(DY atual de {_fmt_pct(av['dy_atual'])}).",
             f"Fonte do histórico: {'dados ao vivo (Yahoo Finance)' if hist.get('fonte') == 'ao_vivo' else 'série ilustrativa offline'}.",
         ]},
         {"titulo": "Valuation", "itens": [
-            f"Cotação atual: {_fmt_moeda(av['cotacao'])}.",
-            f"Preço Justo de Graham: {_fmt_moeda(av['preco_justo_graham'])} (margem {_fmt_pct(av['margem_graham'])}).",
-            f"Preço-Teto Bazin ({av['premissas']['yield_desejado'] * 100:.0f}% sobre dividendos passados): {_fmt_moeda(av['preco_teto_bazin'])}.",
-            f"Preço-Teto Projetivo: {_fmt_moeda(av['preco_teto_projetivo'])} (margem {_fmt_pct(av['margem_projetiva'])}).",
+            f"Cotação atual: {_fmt_moeda(moeda=moeda, v=av['cotacao'])}.",
+            f"Preço Justo de Graham: {_fmt_moeda(moeda=moeda, v=av['preco_justo_graham'])} (margem {_fmt_pct(av['margem_graham'])}).",
+            f"Preço-Teto Bazin ({av['premissas']['yield_desejado'] * 100:.0f}% sobre dividendos passados): {_fmt_moeda(moeda=moeda, v=av['preco_teto_bazin'])}.",
+            f"Preço-Teto Projetivo: {_fmt_moeda(moeda=moeda, v=av['preco_teto_projetivo'])} (margem {_fmt_pct(av['margem_projetiva'])}).",
             f"P/L de {_fmt_num(ativo.get('pl'), 1)} e P/VP de {_fmt_num(ativo.get('pvp'))}.",
         ]},
         {"titulo": "Risco", "itens": [
@@ -153,6 +177,14 @@ def relatorio_ativo(ticker: str) -> dict[str, Any]:
              else "Dívida/EBITDA não se aplica a este tipo de ativo."),
             f"Prêmio sobre LCI 92% do CDI: {_fmt_num(premio['premio_pp'])} p.p. {premio['leitura']}",
         ]},
+        *([{"titulo": "Investindo nos EUA", "itens": [
+            f"Preços em dólar: a {_fmt_moeda(v=av['cotacao'], moeda=moeda)} correspondem a cerca de "
+            f"{_fmt_moeda(ativo.get('cotacao_brl'))} hoje; a variação do câmbio soma (ou subtrai) do retorno.",
+            "Dividendos dos EUA têm 30% de IR retido na fonte para brasileiros; o prêmio acima já desconta isso.",
+            "Na B3, é possível comprar BDRs dessas empresas (ex.: NVDC34, MSFT34, AAPL34) sem abrir conta no exterior.",
+            "Os preços-teto de Bazin foram pensados para pagadoras de dividendos: empresas de crescimento "
+            "que reinvestem o lucro (como Nvidia e Amazon) naturalmente aparecem 'caras' por esse critério.",
+        ]}] if eua else []),
         {"titulo": "Pontos fortes", "itens": fortes or ["Nenhum destaque positivo forte pelas regras atuais."]},
         {"titulo": "Pontos de atenção", "itens": atencao or ["Nenhum alerta relevante pelas regras atuais."]},
         {"titulo": "Notícias relacionadas", "itens": [
@@ -164,8 +196,8 @@ def relatorio_ativo(ticker: str) -> dict[str, Any]:
         "titulo": f"Análise de {ativo['ticker']} — {ativo['nome']}",
         "resumo": (
             f"{ativo['nome']} ({ativo['setor']}) tem Score Alpha de {score['total']:.0f}/100 "
-            f"({score['classificacao']}). Cotação de {_fmt_moeda(av['cotacao'])} frente a um Preço-Teto "
-            f"Projetivo de {_fmt_moeda(av['preco_teto_projetivo'])}."
+            f"({score['classificacao']}). Cotação de {_fmt_moeda(moeda=moeda, v=av['cotacao'])} frente a um Preço-Teto "
+            f"Projetivo de {_fmt_moeda(moeda=moeda, v=av['preco_teto_projetivo'])}."
         ),
         "secoes": secoes,
         "ativos": [ativo["ticker"]],

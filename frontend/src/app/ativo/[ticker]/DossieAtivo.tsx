@@ -3,7 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Cpu, Loader2 } from "lucide-react";
-import { api, fmtBRL, fmtNum, fmtPct, type DetalheAtivo, type RespostaIA, type Valuation } from "@/lib/api";
+import { api, fmtBRL, fmtNum, fmtPct, fmtPreco, type DetalheAtivo, type RespostaIA, type Valuation } from "@/lib/api";
 import { useApi } from "@/lib/useApi";
 import { TICKERS } from "@/lib/tickers";
 import { DividendChart, PriceChart, ScoreRadar } from "@/components/charts";
@@ -43,6 +43,8 @@ export function DossieAtivo() {
 function Conteudo({ d }: { d: DetalheAtivo }) {
   const { ativo, valuation: v, risco } = d;
   const eFii = ativo.tipo === "fii";
+  const eua = ativo.mercado === "EUA";
+  const fmtM = (x: number | null | undefined) => fmtPreco(x, ativo.moeda);
 
   return (
     <div className="flex flex-col gap-6">
@@ -50,13 +52,16 @@ function Conteudo({ d }: { d: DetalheAtivo }) {
       <header className="flex flex-wrap items-end justify-between gap-6">
         <div>
           <p className="text-sm text-muted">
-            {ativo.nome}, {eFii ? "fundo imobiliário" : "ação"} do setor {ativo.setor}
+            {ativo.nome}, {eFii ? "fundo imobiliário" : eua ? "ação negociada nos EUA" : "ação da B3"} do setor {ativo.setor}
           </p>
           <h1 className="wide text-5xl font-semibold tracking-tight">{ativo.ticker}</h1>
         </div>
         <div className="flex items-end gap-6">
           <div className="text-right">
-            <div className="wide text-3xl font-semibold">{fmtBRL(ativo.cotacao)}</div>
+            <div className="wide text-3xl font-semibold">{fmtM(ativo.cotacao)}</div>
+            {eua && ativo.cotacao_brl != null && (
+              <div className="text-xs text-muted">cerca de {fmtBRL(ativo.cotacao_brl)} no câmbio de hoje</div>
+            )}
             <div className="text-sm">
               <Delta value={ativo.variacao_dia} /> <span className="text-muted">hoje</span>
             </div>
@@ -67,12 +72,12 @@ function Conteudo({ d }: { d: DetalheAtivo }) {
 
       <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
         <Panel title="Cotação em 12 meses">
-          <PriceChart dados={d.historico.precos} />
+          <PriceChart dados={d.historico.precos} moeda={ativo.moeda} />
           <h3 className="mb-1 mt-5 text-sm text-muted">
-            Proventos dos últimos 2 anos ({fmtBRL(d.historico.dpa_12m)} por {eFii ? "cota" : "ação"} nos últimos 12 meses)
+            Proventos dos últimos 2 anos ({fmtM(d.historico.dpa_12m)} por {eFii ? "cota" : "ação"} nos últimos 12 meses)
           </h3>
           {d.historico.dividendos.length ? (
-            <DividendChart dados={d.historico.dividendos} />
+            <DividendChart dados={d.historico.dividendos} moeda={ativo.moeda} />
           ) : (
             <p className="py-6 text-sm text-muted">Nenhum provento registrado no período.</p>
           )}
@@ -97,11 +102,11 @@ function Conteudo({ d }: { d: DetalheAtivo }) {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
-        <SimuladorAtivo key={ativo.ticker} ticker={ativo.ticker} base={v} lpa={ativo.lpa} />
+        <SimuladorAtivo key={ativo.ticker} ticker={ativo.ticker} base={v} lpa={ativo.lpa} moeda={ativo.moeda} />
         <Panel title="Valuation e risco">
           <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
-            <Dado rotulo="Preço-teto Bazin" valor={fmtBRL(v.preco_teto_bazin)} extra={`margem ${fmtPct(v.margem_bazin)}`} />
-            <Dado rotulo="Preço justo de Graham" valor={fmtBRL(v.preco_justo_graham)} extra={eFii ? "não se aplica a FIIs" : `margem ${fmtPct(v.margem_graham)}`} />
+            <Dado rotulo="Preço-teto Bazin" valor={fmtM(v.preco_teto_bazin)} extra={`margem ${fmtPct(v.margem_bazin)}`} />
+            <Dado rotulo="Preço justo de Graham" valor={fmtM(v.preco_justo_graham)} extra={eFii ? "não se aplica a FIIs" : `margem ${fmtPct(v.margem_graham)}`} />
             <Dado rotulo="P/L e P/VP" valor={`${fmtNum(ativo.pl, 1)} e ${fmtNum(ativo.pvp)}`} />
             <Dado rotulo="ROE" valor={fmtPct(ativo.roe)} />
             <Dado rotulo="Volatilidade anual" valor={fmtPct(risco.volatilidade_anual)} />
@@ -113,7 +118,7 @@ function Conteudo({ d }: { d: DetalheAtivo }) {
             />
           </dl>
           <div className="mt-5 rounded-lg bg-raised p-3 text-sm">
-            <span className="font-semibold">Contra uma LCI a 92% do CDI: </span>
+            <span className="font-semibold">Contra uma LCI a 92% do CDI{eua ? " (dividendos já sem os 30% de IR retido nos EUA)" : ""}: </span>
             <span className={d.premio_lci.premio_pp >= 0 ? "text-up" : "text-down"}>
               {d.premio_lci.premio_pp > 0 ? "+" : ""}
               {fmtNum(d.premio_lci.premio_pp)} p.p.
@@ -159,7 +164,8 @@ function Dado({ rotulo, valor, extra }: { rotulo: string; valor: string; extra?:
 }
 
 /** Ajuste de payout, crescimento e yield: recalcula o preço-teto projetivo deste ativo no Python. */
-function SimuladorAtivo({ ticker, base, lpa }: { ticker: string; base: Valuation; lpa: number }) {
+function SimuladorAtivo({ ticker, base, lpa, moeda }: { ticker: string; base: Valuation; lpa: number; moeda: string }) {
+  const fmtM = (x: number | null | undefined) => fmtPreco(x, moeda);
   const [payout, setPayout] = useState(base.premissas.payout_pct);
   const [cresc, setCresc] = useState(Math.round(base.premissas.crescimento_g * 100));
   const [yieldPct, setYieldPct] = useState(base.premissas.yield_desejado * 100);
@@ -203,19 +209,19 @@ function SimuladorAtivo({ ticker, base, lpa }: { ticker: string; base: Valuation
       <div className="mt-5 grid grid-cols-2 gap-4 border-t border-line pt-4">
         <div>
           <div className="text-sm text-muted">Preço-teto projetivo</div>
-          <div className="wide text-2xl font-semibold">{fmtBRL(res.preco_teto_projetivo)}</div>
+          <div className="wide text-2xl font-semibold">{fmtM(res.preco_teto_projetivo)}</div>
           <div className={`text-sm ${(res.margem_projetiva ?? 0) >= 0 ? "text-up" : "text-down"}`}>
             margem de {fmtPct(res.margem_projetiva)}
           </div>
         </div>
         <div>
           <div className="text-sm text-muted">Dividendo projetado</div>
-          <div className="wide text-2xl font-semibold">{fmtBRL(res.dpa_projetado)}</div>
+          <div className="wide text-2xl font-semibold">{fmtM(res.dpa_projetado)}</div>
           <div className="text-sm text-muted">{fmtPct(res.dy_projetado)} ao ano, score {Math.round(res.score.total)}</div>
         </div>
       </div>
       <p className="mt-4 text-xs text-muted">
-        Conta feita no backend: {fmtBRL(lpa)} (LPA) × (1 {cresc >= 0 ? "+" : "−"} {Math.abs(cresc)}%) × {payout}% ÷ {fmtPct(yieldPct)}.
+        Conta feita no backend: {fmtM(lpa)} (LPA) × (1 {cresc >= 0 ? "+" : "−"} {Math.abs(cresc)}%) × {payout}% ÷ {fmtPct(yieldPct)}.
       </p>
     </Panel>
   );

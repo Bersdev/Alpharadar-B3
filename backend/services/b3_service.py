@@ -78,14 +78,18 @@ def _baixar_ultimos_fechamentos(simbolos: list[str]) -> pd.DataFrame:
     return fechamentos
 
 
-def cotacoes_yfinance(tickers: list[str]) -> dict[str, dict[str, float]]:
+def cotacoes_yfinance(tickers: list[str], simbolos_por_ticker: dict[str, str] | None = None) -> dict[str, dict[str, float]]:
     """
     Busca a última cotação e a variação do dia para vários tickers de uma vez.
+
+    ``simbolos_por_ticker`` informa o símbolo no Yahoo quando ele não é o padrão
+    da B3 (ex.: ações dos EUA: {"NVDA": "NVDA"}; sem ele, "NVDA" viraria "NVDA.SA").
 
     Retorna ``{"PETR4": {"cotacao": 31.4, "variacao_dia": -0.63}, ...}``.
     Tickers sem dados são simplesmente omitidos.
     """
-    simbolos = [para_yahoo(t) for t in tickers]
+    mapa = simbolos_por_ticker or {}
+    simbolos = [mapa.get(t) or para_yahoo(t) for t in tickers]
     fechamentos = _com_timeout(_baixar_ultimos_fechamentos, simbolos)
 
     resultado: dict[str, dict[str, float]] = {}
@@ -115,10 +119,10 @@ def macro_yfinance() -> dict[str, float]:
     return resultado
 
 
-def _historico(ticker: str, periodo: str) -> tuple[pd.Series, pd.Series]:
+def _historico(ticker: str, periodo: str, simbolo: str | None = None) -> tuple[pd.Series, pd.Series]:
     import yfinance as yf
 
-    papel = yf.Ticker(para_yahoo(ticker))
+    papel = yf.Ticker(simbolo or para_yahoo(ticker))
     hist = papel.history(period=periodo, auto_adjust=False)
     if hist is None or hist.empty:
         raise ValueError(f"sem histórico para {ticker}")
@@ -126,7 +130,7 @@ def _historico(ticker: str, periodo: str) -> tuple[pd.Series, pd.Series]:
     return hist["Close"], dividendos
 
 
-def historico_yfinance(ticker: str, periodo: str = "1y") -> dict[str, Any]:
+def historico_yfinance(ticker: str, periodo: str = "1y", simbolo: str | None = None) -> dict[str, Any]:
     """
     Histórico de preços de fechamento e de dividendos pagos.
 
@@ -135,7 +139,7 @@ def historico_yfinance(ticker: str, periodo: str = "1y") -> dict[str, Any]:
         dividendos: [{"data": "2026-03-15", "valor": 0.85}, ...]
         dpa_12m:    soma dos dividendos dos últimos 365 dias
     """
-    fechamentos, dividendos = _com_timeout(_historico, ticker, periodo)
+    fechamentos, dividendos = _com_timeout(_historico, ticker, periodo, simbolo)
 
     precos = [
         {"data": idx.strftime("%Y-%m-%d"), "fechamento": round(float(v), 2)}

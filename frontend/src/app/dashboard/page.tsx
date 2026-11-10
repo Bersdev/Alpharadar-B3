@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { BarChart3, DollarSign, Percent } from "lucide-react";
-import { fmtBRL, fmtNum, fmtPct, fmtSinal, type AtivoAvaliado, type Overview, type ResumoAtivo } from "@/lib/api";
+import { fmtNum, fmtPct, fmtPreco, fmtSinal, type AtivoAvaliado, type Overview, type ResumoAtivo } from "@/lib/api";
 import { useApi } from "@/lib/useApi";
 import { Delta, Disclaimer, ErrorState, Loading, PageHeader, Panel, Pill, SourceBadge, TickerChip } from "@/components/ui";
 
@@ -160,10 +160,10 @@ function CartaoMovimento({ a }: { a: ResumoAtivo }) {
   return (
     <Cartao
       href={`/ativo/${a.ticker}`}
-      topo={a.tipo === "fii" ? "Fundo imobiliário" : "Ação"}
+      topo={a.tipo === "fii" ? "Fundo imobiliário" : a.mercado === "EUA" ? "Ação dos EUA" : "Ação B3"}
       selo={<Pill tone={a.variacao_dia >= 0 ? "up" : "down"}>{fmtSinal(a.variacao_dia)}</Pill>}
       titulo={`${a.ticker}, ${a.nome}`}
-      valor={fmtBRL(a.cotacao)}
+      valor={fmtPreco(a.cotacao, a.moeda)}
       rodape={<span>Variação de hoje</span>}
     />
   );
@@ -177,7 +177,7 @@ function CartaoScore({ a }: { a: AtivoAvaliado }) {
       topo={a.setor}
       selo={<Pill tone={tom}>{a.score.classificacao}</Pill>}
       titulo={`${a.ticker}, score ${Math.round(a.score.total)} de 100`}
-      valor={fmtBRL(a.preco_teto_projetivo)}
+      valor={fmtPreco(a.preco_teto_projetivo, a.moeda)}
       barra={{ pct: a.score.total, cor: tom === "up" ? "bg-up" : tom === "warn" ? "bg-warn" : "bg-down" }}
       rodape={<span>Teto projetivo, margem de {fmtPct(a.margem_projetiva)}</span>}
     />

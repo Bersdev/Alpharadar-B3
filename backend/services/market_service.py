@@ -93,20 +93,32 @@ def tickers_monitorados() -> list[str]:
     return [a["ticker"] for a in carregar_fallback()["ativos"]]
 
 
+def simbolo_yahoo(ativo: dict[str, Any]) -> str:
+    """Símbolo no Yahoo Finance: B3 usa sufixo ".SA" (PETR4.SA); EUA usa o próprio ticker (NVDA)."""
+    return ativo.get("yahoo") or f"{ativo['ticker']}.SA"
+
+
+def _completar_mercado(ativo: dict[str, Any]) -> None:
+    """Ativos antigos do JSON não têm mercado/moeda: por padrão são da B3, em reais."""
+    ativo.setdefault("mercado", "B3")
+    ativo.setdefault("moeda", "BRL")
+
+
 # ---------------------------------------------------------------------------
 # Cotações e fundamentos
 # ---------------------------------------------------------------------------
 
-def _cotacoes_ao_vivo(tickers: list[str]) -> tuple[dict[str, dict[str, float]], str]:
-    """Tenta yfinance; completa o que faltar com brapi.dev. Retorna (dados, fonte)."""
+def _cotacoes_ao_vivo(ativos: list[dict[str, Any]]) -> tuple[dict[str, dict[str, float]], str]:
+    """Tenta yfinance; completa o que faltar (só B3) com brapi.dev. Retorna (dados, fonte)."""
     if modo_offline():
         return {}, "fallback"
+    tickers = [a["ticker"] for a in ativos]
     dados: dict[str, dict[str, float]] = {}
     try:
-        dados = b3_service.cotacoes_yfinance(tickers)
+        dados = b3_service.cotacoes_yfinance(tickers, {a["ticker"]: simbolo_yahoo(a) for a in ativos})
     except Exception as erro:  # noqa: BLE001
         logger.warning("yfinance indisponível: %s", erro)
-    faltando = [t for t in tickers if t not in dados]
+    faltando = [a["ticker"] for a in ativos if a["ticker"] not in dados and a["mercado"] == "B3"]
     if faltando:
         try:
             dados.update(b3_service.cotacoes_brapi(faltando))
@@ -129,12 +141,18 @@ def listar_ativos() -> dict[str, Any]:
     def _calcular() -> dict[str, Any]:
         base = carregar_fallback()
         ativos = base["ativos"]
-        ao_vivo, fonte = _cotacoes_ao_vivo([a["ticker"] for a in ativos])
+        for ativo in ativos:
+            _completar_mercado(ativo)
+        ao_vivo, fonte = _cotacoes_ao_vivo(ativos)
+        dolar = float(indicadores_macro().get("dolar") or 0)
         for ativo in ativos:
             cot = ao_vivo.get(ativo["ticker"])
             ativo["fonte_cotacao"] = "ao_vivo" if cot else "fallback"
             if cot:
                 ativo.update(cot)
+            # Ações dos EUA: também em reais, pelo dólar do dia (só para referência).
+            if ativo["moeda"] == "USD" and dolar:
+                ativo["cotacao_brl"] = round(ativo["cotacao"] * dolar, 2)
         return {"ativos": ativos, "fonte": fonte, "atualizado_em": time.strftime("%Y-%m-%d %H:%M:%S")}
 
     return copy.deepcopy(_cache.obter_ou_calcular("ativos", TTL_COTACOES, _calcular))
@@ -232,7 +250,7 @@ def historico_ativo(ticker: str) -> dict[str, Any]:
     def _calcular() -> dict[str, Any]:
         if not modo_offline():
             try:
-                dados = b3_service.historico_yfinance(ativo["ticker"])
+                dados = b3_service.historico_yfinance(ativo["ticker"], simbolo=simbolo_yahoo(ativo))
                 if dados["precos"]:
                     dados["fonte"] = "ao_vivo"
                     return dados
