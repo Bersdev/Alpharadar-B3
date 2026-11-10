@@ -141,7 +141,7 @@ O projeto tem dois serviços no mesmo repositório: a API Python e o site Next.j
 2. Em **Variables**, defina `NEXT_PUBLIC_API_URL` com o endereço da API do passo anterior, **sem barra no final**. Faça isso antes do build: o Next.js grava esse valor no código ao compilar.
 3. Gere o domínio público em **Settings → Networking**.
 
-Observações: o Yahoo Finance pode bloquear servidores em nuvem; nesse caso o app mostra os dados de reserva com o selo "Modo offline". A rota de IA aceita 8 perguntas por minuto por IP (`AI_RATE_LIMIT_PER_MINUTE`) para proteger a cota gratuita.
+Observações: o Yahoo Finance pode bloquear servidores em nuvem; nesse caso o app mostra os dados de reserva com o selo "Modo offline". A rota de IA aceita 8 perguntas por minuto por IP (`AI_RATE_LIMIT_PER_MINUTE`) e 60 no total (`AI_GLOBAL_RATE_LIMIT_PER_MINUTE`) para proteger a cota gratuita.
 
 ---
 

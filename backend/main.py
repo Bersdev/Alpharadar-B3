@@ -19,7 +19,9 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 import time
+from collections import OrderedDict
 from typing import Any
 
 from dotenv import load_dotenv
@@ -64,27 +66,41 @@ app.add_middleware(
 
 # Limite de uso da rota de IA (por IP): em um site público, sem isso qualquer pessoa
 # poderia esgotar a cota gratuita do provedor de IA.
-LIMITE_IA_POR_MINUTO = int(os.getenv("AI_RATE_LIMIT_PER_MINUTE", "8"))
-_acessos_ia: dict[str, list[float]] = {}
+LIMITE_IA_POR_MINUTO = int(os.getenv("AI_RATE_LIMIT_PER_MINUTE", "8"))      # por IP
+LIMITE_IA_GLOBAL_POR_MINUTO = int(os.getenv("AI_GLOBAL_RATE_LIMIT_PER_MINUTE", "60"))  # todos juntos
+MAX_IPS_RASTREADOS = 5000
+_acessos_ia: "OrderedDict[str, list[float]]" = OrderedDict()
+_acessos_globais: list[float] = []
+_trava_limite = threading.Lock()  # a rota roda em várias threads: leitura, checagem e escrita são uma operação só
 
 
 def _ip_do_cliente(request: Request) -> str:
-    # Atrás do proxy da Railway o IP real vem em X-Forwarded-For (primeiro endereço).
+    """
+    IP do visitante. Atrás da Railway, o proxy ACRESCENTA o IP real ao fim de X-Forwarded-For;
+    o primeiro endereço da lista é escrito pelo próprio cliente e pode ser falsificado,
+    então usamos o último. Rodando sem proxy (localmente), vale o IP da conexão.
+    """
     encaminhado = request.headers.get("x-forwarded-for", "")
-    return encaminhado.split(",")[0].strip() or (request.client.host if request.client else "desconhecido")
+    if encaminhado and os.getenv("RAILWAY_ENVIRONMENT"):  # variável presente só dentro da Railway
+        return encaminhado.split(",")[-1].strip()
+    return request.client.host if request.client else "desconhecido"
 
 
 def _checar_limite_ia(request: Request) -> None:
     agora = time.time()
     ip = _ip_do_cliente(request)
-    recentes = [t for t in _acessos_ia.get(ip, []) if agora - t < 60]
-    if len(recentes) >= LIMITE_IA_POR_MINUTO:
-        raise HTTPException(status_code=429, detail="Muitas perguntas seguidas. Aguarde um minuto e tente de novo.")
-    recentes.append(agora)
-    _acessos_ia[ip] = recentes
-    if len(_acessos_ia) > 5000:  # evita crescer sem limite
-        for k in [k for k, v in _acessos_ia.items() if not v or agora - v[-1] > 60]:
-            _acessos_ia.pop(k, None)
+    with _trava_limite:
+        # Teto global: mesmo quem consiga trocar de IP não passa deste total por minuto.
+        _acessos_globais[:] = [t for t in _acessos_globais if agora - t < 60]
+        recentes = [t for t in _acessos_ia.get(ip, []) if agora - t < 60]
+        if len(recentes) >= LIMITE_IA_POR_MINUTO or len(_acessos_globais) >= LIMITE_IA_GLOBAL_POR_MINUTO:
+            raise HTTPException(status_code=429, detail="Muitas perguntas seguidas. Aguarde um minuto e tente de novo.")
+        recentes.append(agora)
+        _acessos_globais.append(agora)
+        _acessos_ia[ip] = recentes
+        _acessos_ia.move_to_end(ip)
+        while len(_acessos_ia) > MAX_IPS_RASTREADOS:  # descarta os IPs menos recentes (LRU)
+            _acessos_ia.popitem(last=False)
 
 
 @app.exception_handler(Exception)
