@@ -22,6 +22,7 @@ import os
 import threading
 import time
 from collections import OrderedDict
+from contextlib import asynccontextmanager
 from typing import Any
 
 from dotenv import load_dotenv
@@ -33,12 +34,28 @@ from pydantic import BaseModel, Field
 load_dotenv()  # lê backend/.env (se existir) ANTES de importar os serviços
 
 from engine import ai_analyst, fixed_income, valuation  # noqa: E402
-from services import market_service, news_service  # noqa: E402
+from services import global_service, market_service, news_service  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("alpharadar.api")
 
+@asynccontextmanager
+async def ciclo_de_vida(_: FastAPI):
+    """Ao iniciar, aquece os caches (cotações, fundamentos e mercado global) em segundo plano:
+    o primeiro visitante não espera as dezenas de consultas ao Yahoo."""
+    def _aquecer() -> None:
+        for tarefa in (market_service.listar_ativos, global_service.panorama_global, global_service.expectativas_focus):
+            try:
+                tarefa()
+            except Exception as erro:  # noqa: BLE001
+                logger.warning("Aquecimento de %s falhou: %s", tarefa.__name__, type(erro).__name__)
+
+    threading.Thread(target=_aquecer, daemon=True).start()
+    yield
+
+
 app = FastAPI(
+    lifespan=ciclo_de_vida,
     title="AlphaRadar B3 API",
     version="1.0.0",
     description=(
@@ -218,6 +235,18 @@ def visao_geral() -> dict[str, Any]:
         "manchetes_urgentes": [n for n in noticias if n.get("impacto") == "alto"][:4],
         "ticker_tape": [resumo_ativo(a) for a in ativos],
     }
+
+
+@app.get("/api/mercado", tags=["Mercado"])
+def mercado_global() -> dict[str, Any]:
+    """Bolsas, moedas, cripto, commodities, juros dos EUA, termômetro de risco e série juros × Ibovespa."""
+    return global_service.panorama_global()
+
+
+@app.get("/api/macro", tags=["Mercado"])
+def macro_e_agenda() -> dict[str, Any]:
+    """Expectativas do Boletim Focus (Selic, IPCA, PIB, câmbio) e agenda econômica da semana."""
+    return {"focus": global_service.expectativas_focus(), "agenda": global_service.agenda_economica()}
 
 
 @app.get("/api/assets", tags=["Ativos"])

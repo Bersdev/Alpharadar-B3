@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Activity, Bot, BookOpen, Calculator, Landmark, Menu, Newspaper, Search, X } from "lucide-react";
+import { Activity, Bot, BookOpen, Calculator, Coins, Globe, GraduationCap, Landmark, Menu, Newspaper, Search, Wallet, X } from "lucide-react";
 import { API_URL } from "@/lib/api";
 import { Logo } from "./Logo";
 import { ThemeToggle } from "./ThemeToggle";
@@ -13,6 +13,7 @@ const GRUPOS = [
     titulo: "Mercado",
     itens: [
       { href: "/dashboard", label: "Visão geral", icon: Activity },
+      { href: "/mercado", label: "Mercado global", icon: Globe },
       { href: "/radar-noticias", label: "Radar de notícias", icon: Newspaper },
     ],
   },
@@ -21,7 +22,15 @@ const GRUPOS = [
     itens: [
       { href: "/preco-teto", label: "Preço-teto", icon: Calculator },
       { href: "/ativo/BBAS3", label: "Dossiê do ativo", icon: Search, prefixo: "/ativo" },
+      { href: "/dividendos", label: "Dividendos", icon: Coins },
       { href: "/renda-fixa", label: "LCI, LCA e CDB", icon: Landmark },
+    ],
+  },
+  {
+    titulo: "Minha área",
+    itens: [
+      { href: "/carteira", label: "Minha carteira", icon: Wallet },
+      { href: "/aprender", label: "Aprender", icon: GraduationCap },
     ],
   },
   {

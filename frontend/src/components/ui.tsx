@@ -1,9 +1,11 @@
 // Peças visuais reutilizadas em todas as páginas.
 import Image from "next/image";
 import Link from "next/link";
-import { AlertTriangle, Loader2, WifiOff } from "lucide-react";
+import { AlertTriangle, HelpCircle, Loader2, Star, WifiOff } from "lucide-react";
 import type { ReactNode } from "react";
 import { fmtSinal, type Fonte } from "@/lib/api";
+import { GLOSSARIO, type ChaveTermo } from "@/lib/glossario";
+import { alternarFavorito, useFavoritos } from "@/lib/storage";
 
 /** Ícone 3D decorativo (Fluent Emoji 3D, licença MIT). Os arquivos ficam em public/icons. */
 export function Icon3D({ name, size = 72, className = "" }: { name: string; size?: number; className?: string }) {
@@ -163,3 +165,55 @@ export const Disclaimer = () => (
     Conteúdo educativo calculado a partir de dados públicos e premissas simplificadas. Não é recomendação de investimento.
   </p>
 );
+
+/** Ícone (?) que explica um termo ao passar o mouse ou focar com o teclado. O texto vem de lib/glossario.ts. */
+export function InfoTip({ termo, className = "" }: { termo: ChaveTermo; className?: string }) {
+  const t = GLOSSARIO[termo];
+  return (
+    <span className={`group relative inline-flex align-middle ${className}`}>
+      <button
+        type="button"
+        aria-label={`O que é ${t.nome}`}
+        className="grid h-4 w-4 place-items-center rounded-full text-muted hover:text-brand focus-visible:text-brand"
+      >
+        <HelpCircle size={14} />
+      </button>
+      <span
+        role="tooltip"
+        className="card pointer-events-none invisible absolute left-1/2 top-full z-30 mt-1.5 w-64 -translate-x-1/2 p-3 text-left text-xs font-normal leading-relaxed text-text opacity-0 transition-opacity group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100"
+      >
+        <span className="mb-1 block font-semibold">{t.nome}</span>
+        {t.curto}
+        {"formula" in t && t.formula && <span className="mt-1.5 block rounded-md bg-raised px-2 py-1 text-[11px] text-muted">{t.formula}</span>}
+      </span>
+    </span>
+  );
+}
+
+/** Estrela para marcar um ativo como favorito (salvo no navegador). */
+export function StarButton({ ticker, className = "" }: { ticker: string; className?: string }) {
+  const favoritos = useFavoritos();
+  const ativo = favoritos.includes(ticker);
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        alternarFavorito(ticker);
+      }}
+      aria-pressed={ativo}
+      aria-label={ativo ? `Remover ${ticker} dos favoritos` : `Adicionar ${ticker} aos favoritos`}
+      title={ativo ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+      className={`grid h-7 w-7 place-items-center rounded-lg transition-colors hover:bg-raised ${ativo ? "text-warn" : "text-muted"} ${className}`}
+    >
+      <Star size={16} fill={ativo ? "currentColor" : "none"} strokeWidth={1.8} />
+    </button>
+  );
+}
+
+/** Selo de margem como no vídeo de referência: verde quando há margem de segurança, cinza quando não há. */
+export function MargemBadge({ margem }: { margem: number | null | undefined }) {
+  if (margem == null) return <Pill tone="muted">sem dividendos</Pill>;
+  return margem > 0 ? <Pill tone="up">margem positiva</Pill> : <Pill tone="muted">sem margem</Pill>;
+}

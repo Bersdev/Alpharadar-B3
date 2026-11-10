@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowDownUp, RotateCcw } from "lucide-react";
 import { api, fmtPct, fmtPreco, type AtivoAvaliado } from "@/lib/api";
-import { Disclaimer, ErrorState, Loading, PageHeader, Panel, ScorePill } from "@/components/ui";
+import type { ChaveTermo } from "@/lib/glossario";
+import { useFavoritos } from "@/lib/storage";
+import { Disclaimer, ErrorState, InfoTip, Loading, MargemBadge, PageHeader, Panel, ScorePill, StarButton } from "@/components/ui";
 
 type Ordem = "score" | "margem_projetiva" | "dy_projetado" | "ticker";
 type Filtro = "todos" | "acao" | "fii" | "eua";
@@ -18,6 +20,14 @@ export default function PrecoTetoPage() {
   const [erro, setErro] = useState<string | null>(null);
   const [calculando, setCalculando] = useState(false);
   const [tentativa, setTentativa] = useState(0);
+  // Critérios do usuário: reduzem o universo a poucas ideias (a filosofia "menos ruído, mais convicção").
+  const [busca, setBusca] = useState("");
+  const [soMargem, setSoMargem] = useState(false);
+  const [soFavoritos, setSoFavoritos] = useState(false);
+  const [dyMin, setDyMin] = useState(0);
+  const [roeMin, setRoeMin] = useState(0);
+  const [setor, setSetor] = useState("todos");
+  const favoritos = useFavoritos();
 
   // Cada mudança nos sliders dispara o cálculo no backend Python (com 250 ms de espera).
   useEffect(() => {
@@ -41,13 +51,31 @@ export default function PrecoTetoPage() {
 
   const linhas = useMemo(() => {
     if (!dados) return [];
-    const filtradas = dados.filter((a) =>
-      filtro === "todos" ? true : filtro === "eua" ? a.mercado === "EUA" : a.tipo === filtro && a.mercado === "B3",
+    const q = busca.trim().toLowerCase();
+    const filtradas = dados.filter(
+      (a) =>
+        (filtro === "todos" ? true : filtro === "eua" ? a.mercado === "EUA" : a.tipo === filtro && a.mercado === "B3") &&
+        (!q || a.ticker.toLowerCase().includes(q) || a.nome.toLowerCase().includes(q)) &&
+        (!soMargem || (a.margem_projetiva ?? -1) > 0) &&
+        (!soFavoritos || favoritos.includes(a.ticker)) &&
+        (a.dy_projetado ?? 0) >= dyMin &&
+        (roeMin === 0 || a.tipo === "fii" || (a.roe ?? 0) >= roeMin) &&
+        (setor === "todos" || a.setor === setor),
     );
     const valor = (a: AtivoAvaliado) =>
       ordem === "score" ? a.score.total : ordem === "ticker" ? 0 : (a[ordem] ?? -Infinity);
     return [...filtradas].sort((a, b) => (ordem === "ticker" ? a.ticker.localeCompare(b.ticker) : valor(b) - valor(a)));
-  }, [dados, filtro, ordem]);
+  }, [dados, filtro, ordem, busca, soMargem, soFavoritos, dyMin, roeMin, setor, favoritos]);
+  const setores = useMemo(() => [...new Set((dados ?? []).map((a) => a.setor))].sort(), [dados]);
+  const filtrosAtivos = busca !== "" || soMargem || soFavoritos || dyMin > 0 || roeMin > 0 || setor !== "todos";
+  const limparFiltros = () => {
+    setBusca("");
+    setSoMargem(false);
+    setSoFavoritos(false);
+    setDyMin(0);
+    setRoeMin(0);
+    setSetor("todos");
+  };
 
   return (
     <>
@@ -96,6 +124,40 @@ export default function PrecoTetoPage() {
         </p>
       </Panel>
 
+      <Panel
+        title="Seus critérios"
+        className="mb-6"
+        action={filtrosAtivos && <button onClick={limparFiltros} className="text-sm font-medium text-brand hover:underline">Limpar critérios</button>}
+      >
+        <div className="grid gap-x-6 gap-y-5 md:grid-cols-2 xl:grid-cols-4">
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium">Buscar</span>
+            <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Ticker ou nome" className="w-full rounded-xl border border-line bg-raised px-3 py-2 text-text placeholder:text-muted" />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium">Setor</span>
+            <select value={setor} onChange={(e) => setSetor(e.target.value)} className="w-full rounded-xl border border-line bg-raised px-3 py-2 text-text">
+              <option value="todos">Todos os setores</option>
+              {setores.map((x) => (
+                <option key={x}>{x}</option>
+              ))}
+            </select>
+          </label>
+          <Slider label="Dividend yield projetado mínimo" valor={dyMin} exibicao={dyMin === 0 ? "qualquer" : `${dyMin.toFixed(1).replace(".", ",")}% ou mais`} min={0} max={15} step={0.5} onChange={setDyMin} dica="Descarta quem paga menos que isso." />
+          <Slider label="ROE mínimo (empresas)" valor={roeMin} exibicao={roeMin === 0 ? "qualquer" : `${roeMin}% ou mais`} min={0} max={30} step={1} onChange={setRoeMin} dica="Rentabilidade sobre o patrimônio. FIIs não entram neste filtro." />
+        </div>
+        <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 border-t border-line pt-4 text-sm">
+          <label className="flex cursor-pointer items-center gap-2">
+            <input type="checkbox" checked={soMargem} onChange={(e) => setSoMargem(e.target.checked)} className="h-4 w-4 accent-[var(--brand)]" />
+            Só com margem positiva <InfoTip termo="margem_seguranca" />
+          </label>
+          <label className="flex cursor-pointer items-center gap-2">
+            <input type="checkbox" checked={soFavoritos} onChange={(e) => setSoFavoritos(e.target.checked)} className="h-4 w-4 accent-[var(--brand)]" />
+            Só meus favoritos ({favoritos.length})
+          </label>
+        </div>
+      </Panel>
+
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div className="inline-flex rounded-lg border border-line p-0.5 text-sm" role="tablist">
           {(["todos", "acao", "fii", "eua"] as Filtro[]).map((f) => (
@@ -111,29 +173,39 @@ export default function PrecoTetoPage() {
           ))}
         </div>
         <span className="text-xs text-muted" aria-live="polite">
-          {calculando ? "Recalculando no Python…" : dados ? `${linhas.length} ativos` : ""}
+          {calculando ? "Recalculando no Python…" : dados ? `${linhas.length} de ${dados.length} ativos` : ""}
         </span>
       </div>
 
       {erro && <ErrorState message={erro} onRetry={() => setTentativa((n) => n + 1)} />}
       {!dados && !erro && <Loading />}
-      {dados && (
+      {dados && linhas.length === 0 && (
+        <div className="card py-12 text-center">
+          <p className="font-medium">Nenhum ativo atende a todos os critérios.</p>
+          <p className="mt-1 text-sm text-muted">Afrouxe o dividend yield ou o ROE mínimo, ou limpe os critérios.</p>
+          <button onClick={limparFiltros} className="mt-4 rounded-xl bg-brand px-4 py-2 text-sm font-medium text-white hover:brightness-110">
+            Limpar critérios
+          </button>
+        </div>
+      )}
+      {dados && linhas.length > 0 && (
         <div className="card scroll-thin overflow-x-auto">
-          <table className="w-full min-w-[920px] text-sm">
+          <table className="w-full min-w-[1000px] text-sm">
             <thead className="text-left text-xs text-muted">
               <tr className="border-b border-line">
+                <th className="w-10 px-3 py-3" />
                 <Th onClick={() => setOrdem("ticker")} ativo={ordem === "ticker"}>Ativo</Th>
                 <th className="px-4 py-3 text-right font-normal">Cotação</th>
-                <th className="px-4 py-3 text-right font-normal">Teto Bazin</th>
-                <th className="px-4 py-3 text-right font-normal">Teto projetivo</th>
-                <th className="px-4 py-3 text-right font-normal">Graham</th>
-                <Th onClick={() => setOrdem("margem_projetiva")} ativo={ordem === "margem_projetiva"} direita>
+                <th className="px-4 py-3 text-right font-normal">Teto Bazin <InfoTip termo="bazin" /></th>
+                <th className="px-4 py-3 text-right font-normal">Teto projetivo <InfoTip termo="preco_teto_projetivo" /></th>
+                <th className="px-4 py-3 text-right font-normal">Graham <InfoTip termo="graham" /></th>
+                <Th onClick={() => setOrdem("margem_projetiva")} ativo={ordem === "margem_projetiva"} direita dica="margem_seguranca">
                   Margem de segurança
                 </Th>
-                <Th onClick={() => setOrdem("dy_projetado")} ativo={ordem === "dy_projetado"} direita>
+                <Th onClick={() => setOrdem("dy_projetado")} ativo={ordem === "dy_projetado"} direita dica="dividend_yield">
                   Dividendos projetados
                 </Th>
-                <Th onClick={() => setOrdem("score")} ativo={ordem === "score"} direita>
+                <Th onClick={() => setOrdem("score")} ativo={ordem === "score"} direita dica="score_alpha">
                   Score Alpha
                 </Th>
               </tr>
@@ -141,6 +213,9 @@ export default function PrecoTetoPage() {
             <tbody className={calculando ? "opacity-60" : ""}>
               {linhas.map((a) => (
                 <tr key={a.ticker} className="border-b border-line/60 last:border-0 hover:bg-raised/50">
+                  <td className="px-3 py-3">
+                    <StarButton ticker={a.ticker} />
+                  </td>
                   <td className="px-4 py-3">
                     <Link href={`/ativo/${a.ticker}`} className="font-semibold hover:text-brand">
                       {a.ticker}
@@ -153,6 +228,9 @@ export default function PrecoTetoPage() {
                   <td className="px-4 py-3 text-right text-muted">{fmtPreco(a.preco_justo_graham, a.moeda)}</td>
                   <td className="px-4 py-3 text-right">
                     <Margem valor={a.margem_projetiva} />
+                    <div className="mt-1">
+                      <MargemBadge margem={a.margem_projetiva} />
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-right">
                     {fmtPreco(a.dpa_projetado, a.moeda)}
@@ -196,17 +274,20 @@ function Th({
   onClick,
   ativo,
   direita,
+  dica,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   ativo: boolean;
   direita?: boolean;
+  dica?: ChaveTermo;
 }) {
   return (
     <th className={`px-4 py-3 font-normal ${direita ? "text-right" : ""}`} aria-sort={ativo ? "descending" : "none"}>
       <button onClick={onClick} className={`inline-flex items-center gap-1 hover:text-text ${ativo ? "text-brand" : ""}`}>
         {children} <ArrowDownUp size={11} />
       </button>
+      {dica && <InfoTip termo={dica} className="ml-1" />}
     </th>
   );
 }

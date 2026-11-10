@@ -5,7 +5,8 @@ import type { ReactNode } from "react";
 import { ArrowUpRight, Check } from "lucide-react";
 import { fmtNum, fmtPct, fmtPreco, fmtSinal, type AtivoAvaliado, type Overview, type ResumoAtivo } from "@/lib/api";
 import { useApi } from "@/lib/useApi";
-import { Delta, Disclaimer, ErrorState, Icon3D, Loading, Pill, SourceBadge, TickerChip } from "@/components/ui";
+import { useFavoritos } from "@/lib/storage";
+import { Delta, Disclaimer, ErrorState, Icon3D, Loading, MargemBadge, Pill, SourceBadge, TickerChip } from "@/components/ui";
 
 export default function DashboardPage() {
   const { data, error, loading, reload } = useApi<Overview>("/api/overview");
@@ -155,6 +156,39 @@ function Conteudo({ d, ranking }: { d: Overview; ranking: AtivoAvaliado[] }) {
         )}
       </Cartao>
 
+      <MinhaLista ranking={ranking} />
+
+      <Cartao className="xl:col-span-2" titulo="Oportunidades: preço abaixo do teto" icone="rocket" iconeTamanho={64}>
+        <p className="-mt-2 mb-3 text-xs text-muted">Margem positiva no teto projetivo e Score Alpha de 55 ou mais. É um filtro, não uma recomendação.</p>
+        {(() => {
+          const oportunidades = ranking
+            .filter((a) => (a.margem_projetiva ?? -1) > 0 && a.score.total >= 55)
+            .sort((x, y) => y.score.total - x.score.total)
+            .slice(0, 6);
+          if (ranking.length === 0) return <p className="text-sm text-muted">Calculando…</p>;
+          if (oportunidades.length === 0) return <p className="text-sm text-muted">Nenhum ativo atende a esse filtro agora. Veja todos em Preço-teto.</p>;
+          return (
+            <ul className="grid gap-x-8 sm:grid-cols-2">
+              {oportunidades.map((a) => (
+                <li key={a.ticker} className="border-t border-line first:border-t-0 sm:[&:nth-child(2)]:border-t-0">
+                  <Link href={`/ativo/${a.ticker}`} className="flex items-center gap-3 py-2.5 text-sm hover:text-brand">
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-semibold">{a.ticker}</span>
+                      <span className="block truncate text-xs text-muted">{a.nome}</span>
+                    </span>
+                    <span className="text-right">
+                      <span className="block font-medium">{fmtPreco(a.cotacao, a.moeda)}</span>
+                      <span className="block text-xs text-up">teto {fmtPreco(a.preco_teto_projetivo, a.moeda)}</span>
+                    </span>
+                    <Pill tone="up">{fmtSinal(a.margem_projetiva, 0)}</Pill>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          );
+        })()}
+      </Cartao>
+
       <Cartao className="xl:col-span-3" titulo="Manchetes de alto impacto" icone="news" iconeTamanho={64}
         acao={<Link href="/radar-noticias" className="text-sm font-medium text-brand hover:underline">Abrir radar completo</Link>}>
         <ul className="grid gap-x-8 md:grid-cols-2">
@@ -197,6 +231,39 @@ function Cartao({ titulo, icone, iconeTamanho = 80, acao, className = "", childr
       </div>
       {children}
     </section>
+  );
+}
+
+/** Favoritos do usuário (marcados com a estrela), salvos no navegador. */
+function MinhaLista({ ranking }: { ranking: AtivoAvaliado[] }) {
+  const favoritos = useFavoritos();
+  const itens = ranking.filter((a) => favoritos.includes(a.ticker));
+  return (
+    <Cartao titulo="Minha lista" icone="gem" iconeTamanho={64}>
+      {itens.length === 0 ? (
+        <p className="text-sm leading-relaxed text-muted">
+          Nenhum favorito ainda. Toque na estrela ao lado de um ativo em{" "}
+          <Link href="/preco-teto" className="font-medium text-brand hover:underline">Preço-teto</Link> para acompanhá-lo aqui.
+        </p>
+      ) : (
+        <ul className="divide-y divide-line">
+          {itens.slice(0, 6).map((a) => (
+            <li key={a.ticker}>
+              <Link href={`/ativo/${a.ticker}`} className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5 text-sm hover:bg-raised">
+                <span className="min-w-0 flex-1">
+                  <span className="block font-semibold">{a.ticker}</span>
+                  <span className="block truncate text-xs text-muted">{a.nome}</span>
+                </span>
+                <span className="text-right">
+                  <span className="block font-medium">{fmtPreco(a.cotacao, a.moeda)}</span>
+                  <MargemBadge margem={a.margem_projetiva} />
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Cartao>
   );
 }
 

@@ -13,6 +13,10 @@ const TITULOS: Record<string, [string, string]> = {
   "/renda-fixa": ["Renda fixa", "LCI, LCA e CDB"],
   "/radar-noticias": ["Radar", "de notícias"],
   "/analista-ia": ["Analista", "com IA"],
+  "/mercado": ["Mercado", "global"],
+  "/dividendos": ["Dividendos", "e renda passiva"],
+  "/carteira": ["Minha", "carteira"],
+  "/aprender": ["Aprender", "a ler os números"],
 };
 
 /** Barra superior em cartão: título da página, busca de ativo (Ctrl/⌘ + K) e atalho para o copiloto. */

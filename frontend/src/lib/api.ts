@@ -65,6 +65,7 @@ export interface Ativo {
   pvp: number | null;
   beta: number;
   fonte_cotacao?: Fonte;
+  fonte_fundamentos?: "ao_vivo" | "estimado";
 }
 
 export interface Valuation {
@@ -250,3 +251,48 @@ export const fmtData = (iso: string) =>
 
 const NOMES_IA: Record<string, string> = { gemini: "Gemini", groq: "Groq", openrouter: "OpenRouter", deepseek: "DeepSeek", anthropic: "Claude" };
 export const nomeIA = (p: string | null | undefined) => (p ? (NOMES_IA[p] ?? p) : "IA");
+
+// ---------------- Mercado global, Focus e agenda ----------------
+
+export interface ItemMercado {
+  nome: string;
+  simbolo: string;
+  unidade: string;
+  valor: number;
+  variacao: number;
+  tipo_variacao: "pct" | "pp";
+}
+
+export interface PanoramaGlobal {
+  grupos: { id: string; titulo: string; itens: ItemMercado[] }[];
+  risco: { pontos: number; rotulo: "Apetite alto" | "Neutro" | "Apetite baixo"; motivos: string[] };
+  serie_juros_bolsa: { data: string; ibovespa: number; juro_10a_eua: number }[];
+  fonte: Fonte;
+  atualizado_em: string;
+}
+
+export interface Focus {
+  data_boletim: string;
+  indicadores: { indicador: string; unidade: string; anos: { ano: string; mediana: number; minimo: number; maximo: number }[] }[];
+  fonte: Fonte;
+}
+
+export interface EventoAgenda {
+  quando: string;
+  pais: string;
+  evento: string;
+  impacto: "alto" | "medio";
+  previsto: string;
+  anterior: string;
+}
+
+export interface MacroAgenda {
+  focus: Focus;
+  agenda: { eventos: EventoAgenda[]; fonte: string };
+}
+
+export interface ListaAtivos {
+  ativos: AtivoAvaliado[];
+  total: number;
+  fonte: Fonte;
+}

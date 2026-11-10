@@ -14,6 +14,18 @@ O sistema transforma dados públicos de mercado em respostas rápidas:
 
 > Projeto educativo. Nada aqui é recomendação de investimento.
 
+## Funcionalidades
+
+- **Visão geral** com Ibovespa, câmbio, juros, maiores altas e baixas, melhores Scores, oportunidades (preço abaixo do teto) e sua lista de favoritos
+- **Mercado global:** bolsas do mundo, moedas, criptomoedas, commodities, juros dos EUA, termômetro de apetite a risco, gráfico juros × Ibovespa, expectativas do Boletim Focus e agenda econômica
+- **Preço-teto:** Bazin, teto projetivo e Graham, com filtros por critérios (margem, dividend yield, ROE, setor), selo de margem positiva e favoritos
+- **Dividendos:** ranking de dividend yield projetado e calculadora de renda passiva
+- **Carteira:** posições, resultado, dividendos projetados e distribuição por setor (dados só no seu navegador)
+- **Dossiê do ativo**, **renda fixa** (LCI, LCA, CDB e Tesouro), **radar de notícias** e **Analista IA**
+- **Aprender:** passo a passo de decisão, glossário e dicas (?) ao lado de cada indicador
+- Fundamentos reais (Yahoo Finance) com cache de 6 horas, tema claro e escuro OLED
+
+
 ---
 
 ## Arquitetura
@@ -38,7 +50,7 @@ O sistema transforma dados públicos de mercado em respostas rápidas:
 
 **Princípio central:** toda conta acontece no Python. O frontend só exibe resultados prontos — o que deixa as regras de negócio testáveis, documentadas em `/docs` e independentes da interface.
 
-**Resiliência:** se o Yahoo Finance, a brapi.dev ou o Banco Central falharem, o backend usa `data/fallback_b3.json` (26 ativos e 12 notícias de demonstração) e o frontend mostra o selo "Modo offline". Nenhuma falha externa vira erro 500.
+**Resiliência:** se o Yahoo Finance, a brapi.dev ou o Banco Central falharem, o backend usa `data/fallback_b3.json` (46 ativos e 12 notícias de demonstração) e o frontend mostra o selo "Modo offline". Nenhuma falha externa vira erro 500.
 
 ---
 
@@ -94,7 +106,9 @@ Copie `backend/.env.example` para `backend/.env`:
 | Método | Rota | Descrição |
 |---|---|---|
 | GET | `/api/overview` | Selic, CDI, IPCA, Ibovespa, dólar, maiores altas e baixas, cenário Bolsa × LCI/LCA e manchetes urgentes |
-| GET | `/api/assets` | Os 26 ativos (16 da B3 e 10 dos EUA; filtre com `?mercado=B3` ou `?mercado=EUA`) com Score Alpha, preço-teto Bazin, projetivo e Graham |
+| GET | `/api/assets` | Os 46 ativos (36 da B3, entre ações e FIIs, e 10 dos EUA; filtre com `?mercado=B3` ou `?mercado=EUA`) com Score Alpha, preço-teto Bazin, projetivo e Graham |
+| GET | `/api/mercado` | Bolsas, moedas, cripto, commodities, juros dos EUA, termômetro de apetite a risco e série juros × Ibovespa |
+| GET | `/api/macro` | Expectativas do Boletim Focus (Selic, IPCA, PIB, câmbio) e agenda econômica da semana |
 | GET | `/api/assets/{ticker}` | Dossiê: histórico de preços e dividendos, risco, score detalhado e notícias |
 | POST | `/api/simulate/valuation` | Recalcula preço-teto e score com yield, payout e crescimento escolhidos |
 | POST | `/api/simulate/fixed-income` | LCI/LCA × CDB × Tesouro Selic × dividendos, mês a mês |
@@ -125,6 +139,19 @@ Fórmulas matemáticas são de domínio público (Lei 9.610/98, art. 8º, I). C�
 - [API SGS do Banco Central](https://dadosabertos.bcb.gov.br/) — Selic (série 432), CDI (4389) e IPCA 12 meses (13522)
 
 Fundamentos como LPA, VPA e ROE ficam em `fallback_b3.json` e mudam a cada balanço trimestral; a cotação é atualizada ao vivo (cache de 5 minutos).
+
+---
+
+## Testes e manutenção
+
+```bash
+cd backend
+pip install -r requirements-dev.txt
+pytest                                  # 39 testes dos motores e da API (offline, sem chaves)
+python scripts/atualizar_fallback.py    # atualiza o catálogo de reserva com dados reais do Yahoo
+```
+
+O GitHub Actions (`.github/workflows/ci.yml`) roda os testes do backend e o lint e build do frontend a cada envio.
 
 ---
 

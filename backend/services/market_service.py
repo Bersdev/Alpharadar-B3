@@ -36,7 +36,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Callable
 
-from services import b3_service, bcb_service
+from services import b3_service, bcb_service, fundamentals_service
 
 logger = logging.getLogger("alpharadar.market")
 
@@ -150,9 +150,18 @@ def listar_ativos() -> dict[str, Any]:
             ativo["fonte_cotacao"] = "ao_vivo" if cot else "fallback"
             if cot:
                 ativo.update(cot)
+            ativo.setdefault("fonte_fundamentos", "estimado")
             # Ações dos EUA: também em reais, pelo dólar do dia (só para referência).
             if ativo["moeda"] == "USD" and dolar:
                 ativo["cotacao_brl"] = round(ativo["cotacao"] * dolar, 2)
+        # Fundamentos reais (balanços) com cache de 6 h; falhou? seguem os valores de reserva do JSON.
+        try:
+            for ticker, campos in fundamentals_service.fundamentos_ao_vivo(ativos).items():
+                alvo = next((a for a in ativos if a["ticker"] == ticker), None)
+                if alvo:
+                    fundamentals_service.aplicar_fundamentos(alvo, campos)
+        except Exception as erro:  # noqa: BLE001
+            logger.warning("Fundamentos ao vivo indisponíveis: %s", type(erro).__name__)
         return {"ativos": ativos, "fonte": fonte, "atualizado_em": time.strftime("%Y-%m-%d %H:%M:%S")}
 
     return copy.deepcopy(_cache.obter_ou_calcular("ativos", TTL_COTACOES, _calcular))

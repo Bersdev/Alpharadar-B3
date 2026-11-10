@@ -1,0 +1,570 @@
+{
+ "_sobre": "Snapshot de 10/11/2026 usado quando Yahoo Finance ou Banco Central estão indisponíveis. Valores de referência, não atuais.",
+ "grupos": {
+  "bolsas": [
+   {
+    "nome": "Ibovespa",
+    "simbolo": "^BVSP",
+    "unidade": "pts",
+    "valor": 170792.81,
+    "variacao": -0.84,
+    "tipo_variacao": "pct"
+   },
+   {
+    "nome": "S&P 500",
+    "simbolo": "^GSPC",
+    "unidade": "pts",
+    "valor": 7493.73,
+    "variacao": -0.74,
+    "tipo_variacao": "pct"
+   },
+   {
+    "nome": "Nasdaq",
+    "simbolo": "^IXIC",
+    "unidade": "pts",
+    "valor": 24935.23,
+    "variacao": -1.26,
+    "tipo_variacao": "pct"
+   },
+   {
+    "nome": "Dow Jones",
+    "simbolo": "^DJI",
+    "unidade": "pts",
+    "valor": 52117.64,
+    "variacao": -0.52,
+    "tipo_variacao": "pct"
+   },
+   {
+    "nome": "Euro Stoxx 50",
+    "simbolo": "^STOXX50E",
+    "unidade": "pts",
+    "valor": 6327.87,
+    "variacao": 0.59,
+    "tipo_variacao": "pct"
+   },
+   {
+    "nome": "DAX (Alemanha)",
+    "simbolo": "^GDAXI",
+    "unidade": "pts",
+    "valor": 26347.45,
+    "variacao": 0.31,
+    "tipo_variacao": "pct"
+   },
+   {
+    "nome": "FTSE 100 (Reino Unido)",
+    "simbolo": "^FTSE",
+    "unidade": "pts",
+    "valor": 10751.59,
+    "variacao": -0.29,
+    "tipo_variacao": "pct"
+   },
+   {
+    "nome": "Nikkei (Japão)",
+    "simbolo": "^N225",
+    "unidade": "pts",
+    "valor": 58775.5,
+    "variacao": 2.33,
+    "tipo_variacao": "pct"
+   },
+   {
+    "nome": "Hang Seng (Hong Kong)",
+    "simbolo": "^HSI",
+    "unidade": "pts",
+    "valor": 24448.95,
+    "variacao": -0.13,
+    "tipo_variacao": "pct"
+   },
+   {
+    "nome": "Xangai (China)",
+    "simbolo": "000001.SS",
+    "unidade": "pts",
+    "valor": 3660.79,
+    "variacao": 0.32,
+    "tipo_variacao": "pct"
+   }
+  ],
+  "moedas": [
+   {
+    "nome": "Dólar",
+    "simbolo": "USDBRL=X",
+    "unidade": "R$",
+    "valor": 5.58,
+    "variacao": 1.47,
+    "tipo_variacao": "pct"
+   },
+   {
+    "nome": "Euro",
+    "simbolo": "EURBRL=X",
+    "unidade": "R$",
+    "valor": 6.23,
+    "variacao": 1.67,
+    "tipo_variacao": "pct"
+   },
+   {
+    "nome": "Libra",
+    "simbolo": "GBPBRL=X",
+    "unidade": "R$",
+    "valor": 7.45,
+    "variacao": 1.36,
+    "tipo_variacao": "pct"
+   },
+   {
+    "nome": "Índice do dólar (DXY)",
+    "simbolo": "DX-Y.NYB",
+    "unidade": "pts",
+    "valor": 102.29,
+    "variacao": 0.62,
+    "tipo_variacao": "pct"
+   }
+  ],
+  "cripto": [
+   {
+    "nome": "Bitcoin",
+    "simbolo": "BTC-USD",
+    "unidade": "US$",
+    "valor": 73491.88,
+    "variacao": -2.3,
+    "tipo_variacao": "pct"
+   },
+   {
+    "nome": "Ethereum",
+    "simbolo": "ETH-USD",
+    "unidade": "US$",
+    "valor": 2043.42,
+    "variacao": -4.13,
+    "tipo_variacao": "pct"
+   }
+  ],
+  "commodities": [
+   {
+    "nome": "Petróleo WTI",
+    "simbolo": "CL=F",
+    "unidade": "US$",
+    "valor": 86.17,
+    "variacao": -0.78,
+    "tipo_variacao": "pct"
+   },
+   {
+    "nome": "Petróleo Brent",
+    "simbolo": "BZ=F",
+    "unidade": "US$",
+    "valor": 91.68,
+    "variacao": -0.96,
+    "tipo_variacao": "pct"
+   },
+   {
+    "nome": "Ouro",
+    "simbolo": "GC=F",
+    "unidade": "US$",
+    "valor": 4033.5,
+    "variacao": -1.97,
+    "tipo_variacao": "pct"
+   },
+   {
+    "nome": "Prata",
+    "simbolo": "SI=F",
+    "unidade": "US$",
+    "valor": 51.31,
+    "variacao": -2.4,
+    "tipo_variacao": "pct"
+   },
+   {
+    "nome": "Cobre",
+    "simbolo": "HG=F",
+    "unidade": "US$",
+    "valor": 6.25,
+    "variacao": -1.22,
+    "tipo_variacao": "pct"
+   },
+   {
+    "nome": "Minério de ferro",
+    "simbolo": "TIO=F",
+    "unidade": "US$",
+    "valor": 92.71,
+    "variacao": 0.01,
+    "tipo_variacao": "pct"
+   }
+  ],
+  "juros_eua": [
+   {
+    "nome": "Treasury 13 semanas",
+    "simbolo": "^IRX",
+    "unidade": "%",
+    "valor": 4.12,
+    "variacao": 0.085,
+    "tipo_variacao": "pp"
+   },
+   {
+    "nome": "Treasury 5 anos",
+    "simbolo": "^FVX",
+    "unidade": "%",
+    "valor": 4.83,
+    "variacao": 0.169,
+    "tipo_variacao": "pp"
+   },
+   {
+    "nome": "Treasury 10 anos",
+    "simbolo": "^TNX",
+    "unidade": "%",
+    "valor": 5.01,
+    "variacao": 0.144,
+    "tipo_variacao": "pp"
+   },
+   {
+    "nome": "Treasury 30 anos",
+    "simbolo": "^TYX",
+    "unidade": "%",
+    "valor": 5.37,
+    "variacao": 0.116,
+    "tipo_variacao": "pp"
+   }
+  ],
+  "volatilidade": [
+   {
+    "nome": "VIX (índice do medo)",
+    "simbolo": "^VIX",
+    "unidade": "pts",
+    "valor": 20.72,
+    "variacao": 4.02,
+    "tipo_variacao": "pct"
+   }
+  ]
+ },
+ "serie_juros_bolsa": [
+  {
+   "data": "2026-05-11",
+   "ibovespa": 100.0,
+   "juro_10a_eua": 4.41
+  },
+  {
+   "data": "2026-05-14",
+   "ibovespa": 98.05,
+   "juro_10a_eua": 4.461
+  },
+  {
+   "data": "2026-05-19",
+   "ibovespa": 95.81,
+   "juro_10a_eua": 4.667
+  },
+  {
+   "data": "2026-05-22",
+   "ibovespa": 96.87,
+   "juro_10a_eua": 4.558
+  },
+  {
+   "data": "2026-05-28",
+   "ibovespa": 96.24,
+   "juro_10a_eua": 4.455
+  },
+  {
+   "data": "2026-06-02",
+   "ibovespa": 95.76,
+   "juro_10a_eua": 4.455
+  },
+  {
+   "data": "2026-06-08",
+   "ibovespa": 92.72,
+   "juro_10a_eua": 4.552
+  },
+  {
+   "data": "2026-06-11",
+   "ibovespa": 94.28,
+   "juro_10a_eua": 4.463
+  },
+  {
+   "data": "2026-06-16",
+   "ibovespa": 93.26,
+   "juro_10a_eua": 4.428
+  },
+  {
+   "data": "2026-06-22",
+   "ibovespa": 93.66,
+   "juro_10a_eua": 4.509
+  },
+  {
+   "data": "2026-06-25",
+   "ibovespa": 94.55,
+   "juro_10a_eua": 4.392
+  },
+  {
+   "data": "2026-06-30",
+   "ibovespa": 94.57,
+   "juro_10a_eua": 4.418
+  },
+  {
+   "data": "2026-07-06",
+   "ibovespa": 94.8,
+   "juro_10a_eua": 4.479
+  },
+  {
+   "data": "2026-07-09",
+   "ibovespa": 94.96,
+   "juro_10a_eua": 4.539
+  },
+  {
+   "data": "2026-07-14",
+   "ibovespa": 97.1,
+   "juro_10a_eua": 4.585
+  },
+  {
+   "data": "2026-07-17",
+   "ibovespa": 95.5,
+   "juro_10a_eua": 4.541
+  },
+  {
+   "data": "2026-07-22",
+   "ibovespa": 97.6,
+   "juro_10a_eua": 4.657
+  },
+  {
+   "data": "2026-07-27",
+   "ibovespa": 96.39,
+   "juro_10a_eua": 4.641
+  },
+  {
+   "data": "2026-07-30",
+   "ibovespa": 97.39,
+   "juro_10a_eua": 4.663
+  },
+  {
+   "data": "2026-08-04",
+   "ibovespa": 97.79,
+   "juro_10a_eua": 4.627
+  },
+  {
+   "data": "2026-08-07",
+   "ibovespa": 94.83,
+   "juro_10a_eua": 4.66
+  },
+  {
+   "data": "2026-08-12",
+   "ibovespa": 92.07,
+   "juro_10a_eua": 4.682
+  },
+  {
+   "data": "2026-08-17",
+   "ibovespa": 91.69,
+   "juro_10a_eua": 4.724
+  },
+  {
+   "data": "2026-08-20",
+   "ibovespa": 92.31,
+   "juro_10a_eua": 4.696
+  },
+  {
+   "data": "2026-08-25",
+   "ibovespa": 95.97,
+   "juro_10a_eua": 4.639
+  },
+  {
+   "data": "2026-08-28",
+   "ibovespa": 96.57,
+   "juro_10a_eua": 4.72
+  },
+  {
+   "data": "2026-09-02",
+   "ibovespa": 101.81,
+   "juro_10a_eua": 4.796
+  },
+  {
+   "data": "2026-09-08",
+   "ibovespa": 103.0,
+   "juro_10a_eua": 4.806
+  },
+  {
+   "data": "2026-09-11",
+   "ibovespa": 102.91,
+   "juro_10a_eua": 4.975
+  },
+  {
+   "data": "2026-09-16",
+   "ibovespa": 102.0,
+   "juro_10a_eua": 5.006
+  },
+  {
+   "data": "2026-09-21",
+   "ibovespa": 102.58,
+   "juro_10a_eua": 4.963
+  },
+  {
+   "data": "2026-09-24",
+   "ibovespa": 101.13,
+   "juro_10a_eua": 5.162
+  },
+  {
+   "data": "2026-09-29",
+   "ibovespa": 101.05,
+   "juro_10a_eua": 5.255
+  },
+  {
+   "data": "2026-10-02",
+   "ibovespa": 105.61,
+   "juro_10a_eua": 5.277
+  },
+  {
+   "data": "2026-10-07",
+   "ibovespa": 112.31,
+   "juro_10a_eua": 5.277
+  },
+  {
+   "data": "2026-10-13",
+   "ibovespa": 113.73,
+   "juro_10a_eua": 5.217
+  },
+  {
+   "data": "2026-10-16",
+   "ibovespa": 112.93,
+   "juro_10a_eua": 5.098
+  },
+  {
+   "data": "2026-10-21",
+   "ibovespa": 113.52,
+   "juro_10a_eua": 5.146
+  },
+  {
+   "data": "2026-10-26",
+   "ibovespa": 97.09,
+   "juro_10a_eua": 4.986
+  },
+  {
+   "data": "2026-10-29",
+   "ibovespa": 93.01,
+   "juro_10a_eua": 4.989
+  },
+  {
+   "data": "2026-11-04",
+   "ibovespa": 92.11,
+   "juro_10a_eua": 4.894
+  },
+  {
+   "data": "2026-11-09",
+   "ibovespa": 94.68,
+   "juro_10a_eua": 4.864
+  }
+ ],
+ "focus": {
+  "data_boletim": "2026-11-06",
+  "indicadores": [
+   {
+    "indicador": "Selic (fim do ano)",
+    "unidade": "% a.a.",
+    "anos": [
+     {
+      "ano": "2026",
+      "mediana": 13.75,
+      "minimo": 13.25,
+      "maximo": 14.0
+     },
+     {
+      "ano": "2027",
+      "mediana": 12.5,
+      "minimo": 10.25,
+      "maximo": 15.0
+     },
+     {
+      "ano": "2028",
+      "mediana": 11.0,
+      "minimo": 9.0,
+      "maximo": 14.75
+     },
+     {
+      "ano": "2029",
+      "mediana": 10.25,
+      "minimo": 8.0,
+      "maximo": 13.75
+     }
+    ]
+   },
+   {
+    "indicador": "IPCA (inflação)",
+    "unidade": "% no ano",
+    "anos": [
+     {
+      "ano": "2026",
+      "mediana": 5.2195,
+      "minimo": 4.9102,
+      "maximo": 5.9168
+     },
+     {
+      "ano": "2027",
+      "mediana": 4.9005,
+      "minimo": 3.2483,
+      "maximo": 6.46
+     },
+     {
+      "ano": "2028",
+      "mediana": 4.0,
+      "minimo": 3.0,
+      "maximo": 6.0
+     },
+     {
+      "ano": "2029",
+      "mediana": 4.0,
+      "minimo": 3.0,
+      "maximo": 6.0
+     }
+    ]
+   },
+   {
+    "indicador": "PIB (crescimento)",
+    "unidade": "% no ano",
+    "anos": [
+     {
+      "ano": "2026",
+      "mediana": 1.7546,
+      "minimo": 1.0,
+      "maximo": 2.2825
+     },
+     {
+      "ano": "2027",
+      "mediana": 1.1513,
+      "minimo": -0.2198,
+      "maximo": 2.3755
+     },
+     {
+      "ano": "2028",
+      "mediana": 1.8,
+      "minimo": 0.5,
+      "maximo": 2.803
+     },
+     {
+      "ano": "2029",
+      "mediana": 2.0,
+      "minimo": 1.0,
+      "maximo": 2.8
+     }
+    ]
+   },
+   {
+    "indicador": "Dólar (fim do ano)",
+    "unidade": "R$",
+    "anos": [
+     {
+      "ano": "2026",
+      "mediana": 5.35,
+      "minimo": 4.9,
+      "maximo": 6.0
+     },
+     {
+      "ano": "2027",
+      "mediana": 5.4,
+      "minimo": 4.7,
+      "maximo": 6.0
+     },
+     {
+      "ano": "2028",
+      "mediana": 5.45,
+      "minimo": 4.5,
+      "maximo": 6.31
+     },
+     {
+      "ano": "2029",
+      "mediana": 5.5,
+      "minimo": 4.5,
+      "maximo": 6.3
+     }
+    ]
+   }
+  ]
+ }
+}

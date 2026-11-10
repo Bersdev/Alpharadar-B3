@@ -8,7 +8,8 @@ import { useApi } from "@/lib/useApi";
 import { TICKERS } from "@/lib/tickers";
 import { DividendChart, PriceChart, ScoreRadar } from "@/components/charts";
 import { AnalysisView } from "@/components/AnalysisView";
-import { Delta, Disclaimer, ErrorState, Loading, Panel, SourceBadge } from "@/components/ui";
+import type { ChaveTermo } from "@/lib/glossario";
+import { Delta, Disclaimer, ErrorState, InfoTip, Loading, Panel, SourceBadge, StarButton } from "@/components/ui";
 
 export function DossieAtivo() {
   const params = useParams<{ ticker: string }>();
@@ -54,7 +55,10 @@ function Conteudo({ d }: { d: DetalheAtivo }) {
           <p className="text-sm text-muted">
             {ativo.nome}, {eFii ? "fundo imobiliário" : eua ? "ação negociada nos EUA" : "ação da B3"} do setor {ativo.setor}
           </p>
-          <h1 className="wide text-5xl font-semibold tracking-tight">{ativo.ticker}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="wide text-5xl font-semibold tracking-tight">{ativo.ticker}</h1>
+            <StarButton ticker={ativo.ticker} className="mt-2 !h-9 !w-9" />
+          </div>
         </div>
         <div className="flex items-end gap-6">
           <div className="text-right">
@@ -105,19 +109,23 @@ function Conteudo({ d }: { d: DetalheAtivo }) {
         <SimuladorAtivo key={ativo.ticker} ticker={ativo.ticker} base={v} lpa={ativo.lpa} moeda={ativo.moeda} />
         <Panel title="Valuation e risco">
           <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
-            <Dado rotulo="Preço-teto Bazin" valor={fmtM(v.preco_teto_bazin)} extra={`margem ${fmtPct(v.margem_bazin)}`} />
-            <Dado rotulo="Preço justo de Graham" valor={fmtM(v.preco_justo_graham)} extra={eFii ? "não se aplica a FIIs" : `margem ${fmtPct(v.margem_graham)}`} />
-            <Dado rotulo="P/L e P/VP" valor={`${fmtNum(ativo.pl, 1)} e ${fmtNum(ativo.pvp)}`} />
-            <Dado rotulo="ROE" valor={fmtPct(ativo.roe)} />
-            <Dado rotulo="Volatilidade anual" valor={fmtPct(risco.volatilidade_anual)} />
-            <Dado rotulo="Maior queda em 12 meses" valor={fmtPct(risco.max_drawdown)} />
+            <Dado dica="bazin" rotulo="Preço-teto Bazin" valor={fmtM(v.preco_teto_bazin)} extra={`margem ${fmtPct(v.margem_bazin)}`} />
+            <Dado dica="graham" rotulo="Preço justo de Graham" valor={fmtM(v.preco_justo_graham)} extra={eFii ? "não se aplica a FIIs" : `margem ${fmtPct(v.margem_graham)}`} />
+            <Dado dica="pl" rotulo="P/L e P/VP" valor={`${fmtNum(ativo.pl, 1)} e ${fmtNum(ativo.pvp)}`} />
+            <Dado dica="roe" rotulo="ROE" valor={fmtPct(ativo.roe)} />
+            <Dado dica="volatilidade" rotulo="Volatilidade anual" valor={fmtPct(risco.volatilidade_anual)} />
+            <Dado dica="drawdown" rotulo="Maior queda em 12 meses" valor={fmtPct(risco.max_drawdown)} />
             <Dado rotulo="Retorno em 12 meses" valor={fmtPct(risco.retorno_periodo)} />
             <Dado
+              dica="divida_ebitda"
               rotulo="Dívida líquida / EBITDA"
               valor={ativo.divida_liquida_ebitda == null ? "não se aplica" : `${fmtNum(ativo.divida_liquida_ebitda, 1)}x`}
             />
           </dl>
-          <div className="mt-5 rounded-lg bg-raised p-3 text-sm">
+          <p className="mt-4 text-xs text-muted">
+            Fundamentos: {ativo.fonte_fundamentos === "ao_vivo" ? "atualizados do Yahoo Finance (último balanço publicado)" : "dados de reserva, podem estar defasados"}.
+          </p>
+          <div className="mt-4 rounded-lg bg-raised p-3 text-sm">
             <span className="font-semibold">Contra uma LCI a 92% do CDI{eua ? " (dividendos já sem os 30% de IR retido nos EUA)" : ""}: </span>
             <span className={d.premio_lci.premio_pp >= 0 ? "text-up" : "text-down"}>
               {d.premio_lci.premio_pp > 0 ? "+" : ""}
@@ -153,10 +161,12 @@ function Conteudo({ d }: { d: DetalheAtivo }) {
   );
 }
 
-function Dado({ rotulo, valor, extra }: { rotulo: string; valor: string; extra?: string }) {
+function Dado({ rotulo, valor, extra, dica }: { rotulo: string; valor: string; extra?: string; dica?: ChaveTermo }) {
   return (
     <div>
-      <dt className="text-muted">{rotulo}</dt>
+      <dt className="text-muted">
+        {rotulo} {dica && <InfoTip termo={dica} />}
+      </dt>
       <dd className="mt-0.5 font-semibold">{valor}</dd>
       {extra && <dd className="text-xs text-muted">{extra}</dd>}
     </div>

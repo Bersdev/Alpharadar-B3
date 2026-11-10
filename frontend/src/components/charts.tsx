@@ -6,6 +6,9 @@ import {
   AreaChart,
   Bar,
   BarChart,
+  Cell,
+  Pie,
+  PieChart,
   CartesianGrid,
   Legend,
   Line,
@@ -120,3 +123,42 @@ export function FixedIncomeChart({ curva }: { curva: SimulacaoRF["curva_mensal"]
     </ResponsiveContainer>
   );
 }
+
+/** Ibovespa (base 100) e juro de 10 anos dos EUA: a relação inversa clássica entre juros e bolsa. */
+export function JurosBolsaChart({ dados }: { dados: { data: string; ibovespa: number; juro_10a_eua: number }[] }) {
+  return (
+    <ResponsiveContainer width="100%" height={280}>
+      <LineChart data={dados} margin={{ left: 0, right: 0, top: 8, bottom: 0 }}>
+        <CartesianGrid stroke="var(--line)" strokeDasharray="2 4" vertical={false} />
+        <XAxis dataKey="data" {...eixo} tickFormatter={fmtData} minTickGap={50} />
+        <YAxis yAxisId="ibov" {...eixo} width={44} domain={["auto", "auto"]} tickFormatter={(v: number) => v.toFixed(0)} />
+        <YAxis yAxisId="juro" orientation="right" {...eixo} width={44} domain={["auto", "auto"]} tickFormatter={(v: number) => `${v.toFixed(1)}%`} />
+        <Tooltip {...tooltipStyle} labelFormatter={(l) => new Date(String(l)).toLocaleDateString("pt-BR")}
+          formatter={(v, nome) => [nome === "Ibovespa (base 100)" ? Number(v).toFixed(1) : `${Number(v).toFixed(2)}%`, nome]} />
+        <Legend wrapperStyle={{ fontSize: 12, color: "var(--muted)" }} />
+        <Line yAxisId="ibov" type="monotone" dataKey="ibovespa" name="Ibovespa (base 100)" stroke="var(--brand)" strokeWidth={2} dot={false} />
+        <Line yAxisId="juro" type="monotone" dataKey="juro_10a_eua" name="Juro de 10 anos dos EUA" stroke="var(--warn)" strokeWidth={2} dot={false} />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+const CORES_ROSCA = ["var(--brand)", "var(--up)", "var(--warn)", "#8b5cf6", "#06b6d4", "var(--down)", "#ec4899", "#84cc16", "var(--muted)"];
+
+/** Rosca de distribuição da carteira (por setor ou mercado). */
+export function RoscaChart({ dados }: { dados: { nome: string; valor: number }[] }) {
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <PieChart>
+        <Pie data={dados} dataKey="valor" nameKey="nome" innerRadius={55} outerRadius={85} paddingAngle={2} stroke="none">
+          {dados.map((_, i) => (
+            <Cell key={i} fill={CORES_ROSCA[i % CORES_ROSCA.length]} />
+          ))}
+        </Pie>
+        <Tooltip {...tooltipStyle} formatter={(v, nome) => [fmtBRL(Number(v)), nome]} />
+      </PieChart>
+    </ResponsiveContainer>
+  );
+}
+
+export const coresRosca = (i: number) => CORES_ROSCA[i % CORES_ROSCA.length];
