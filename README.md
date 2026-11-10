@@ -1,5 +1,7 @@
 # AlphaRadar B3
 
+**Demonstração ao vivo: https://alpharadar-b3.up.railway.app**
+
 Plataforma open-source de análise de investimentos — ações da B3, fundos imobiliários (FIIs), ações dos EUA (NVIDIA, Microsoft, Apple e outras), LCI, LCA, CDB e Tesouro Selic — com **motor financeiro escrito em Python** e dashboard web em Next.js.
 
 O sistema transforma dados públicos de mercado em respostas rápidas:
