@@ -87,6 +87,11 @@ app.add_middleware(
 async def cabecalhos_de_seguranca(request: Request, call_next):
     """Cabeçalhos que endurecem o navegador de quem consome a API (e a documentação em /docs)."""
     resposta = await call_next(request)
+    if request.headers.get("x-sonda-ip") == "1":  # TEMPORÁRIO: diagnóstico do proxy da Railway (remover)
+        for nome in ("x-forwarded-for", "x-real-ip", "x-envoy-external-address", "x-forwarded-proto"):
+            resposta.headers[f"X-Sonda-{nome}"] = request.headers.get(nome, "(ausente)")
+        resposta.headers["X-Sonda-par"] = request.client.host if request.client else "(sem par)"
+        resposta.headers["X-Sonda-ip-calculado"] = _ip_do_cliente(request)
     resposta.headers.setdefault("X-Content-Type-Options", "nosniff")
     resposta.headers.setdefault("Referrer-Policy", "no-referrer")
     resposta.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
