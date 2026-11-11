@@ -66,19 +66,33 @@ app = FastAPI(
     ),
 )
 
-# CORS: permite que o frontend chame esta API. Em produção, defina CORS_ORIGINS com o
-# endereço do site (várias URLs separadas por vírgula); os domínios *.up.railway.app
-# já são aceitos para facilitar a publicação na Railway.
-ORIGENS_PERMITIDAS = ["http://localhost:3000", "http://127.0.0.1:3000"] + [
+# CORS: só o seu site (e o ambiente local) podem ler a API pelo navegador de um visitante.
+# A demonstração pública já vem liberada; num fork, defina CORS_ORIGINS com o endereço do seu site
+# (várias URLs separadas por vírgula).
+# Importante: CORS protege o NAVEGADOR do visitante; quem chama a API direto (curl) não é afetado por ele.
+SITE_DA_DEMONSTRACAO = "https://alpharadar-b3.up.railway.app"
+ORIGENS_PERMITIDAS = ["http://localhost:3000", "http://127.0.0.1:3000", SITE_DA_DEMONSTRACAO] + [
     o.strip().rstrip("/") for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()
 ]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ORIGENS_PERMITIDAS,
-    allow_origin_regex=r"https://[a-z0-9-]+\.up\.railway\.app",
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],  # a API não tem escrita: nada de PUT/DELETE/PATCH
+    allow_headers=["Content-Type"],
 )
+
+
+@app.middleware("http")
+async def cabecalhos_de_seguranca(request: Request, call_next):
+    """Cabeçalhos que endurecem o navegador de quem consome a API (e a documentação em /docs)."""
+    resposta = await call_next(request)
+    resposta.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resposta.headers.setdefault("Referrer-Policy", "no-referrer")
+    resposta.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    if not request.url.path.startswith(("/docs", "/redoc")):  # o Swagger precisa de recursos externos
+        resposta.headers.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
+        resposta.headers.setdefault("X-Frame-Options", "DENY")
+    return resposta
 
 
 # Limite de uso da rota de IA (por IP): em um site público, sem isso qualquer pessoa
@@ -93,13 +107,14 @@ _trava_limite = threading.Lock()  # a rota roda em várias threads: leitura, che
 
 def _ip_do_cliente(request: Request) -> str:
     """
-    IP do visitante. Atrás da Railway, o proxy ACRESCENTA o IP real ao fim de X-Forwarded-For;
-    o primeiro endereço da lista é escrito pelo próprio cliente e pode ser falsificado,
-    então usamos o último. Rodando sem proxy (localmente), vale o IP da conexão.
+    IP do visitante. Atrás de um proxy (como o da Railway), o IP real é ACRESCENTADO ao fim de
+    X-Forwarded-For; os endereços anteriores são escritos pelo próprio cliente e podem ser
+    falsificados, então usamos o último. Sem o cabeçalho (rodando localmente), vale o IP da conexão.
+    Sem proxy confiável na frente, o cabeçalho poderia ser forjado: por isso o teto GLOBAL também existe.
     """
-    encaminhado = request.headers.get("x-forwarded-for", "")
-    if encaminhado and os.getenv("RAILWAY_ENVIRONMENT"):  # variável presente só dentro da Railway
-        return encaminhado.split(",")[-1].strip()
+    encaminhado = [p.strip() for p in request.headers.get("x-forwarded-for", "").split(",") if p.strip()]
+    if encaminhado:
+        return encaminhado[-1]
     return request.client.host if request.client else "desconhecido"
 
 

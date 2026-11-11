@@ -73,3 +73,57 @@ def test_termometro_de_risco_reage_ao_vix():
 def test_traducao_de_eventos_da_agenda():
     assert "payroll" in global_service._traduzir("Non-Farm Employment Change").lower()
     assert global_service._traduzir("Evento Desconhecido XYZ") == "Evento Desconhecido XYZ"
+
+
+# ---------------------------------------------------------------- segurança
+def test_cabecalhos_de_seguranca_na_api(cliente):
+    h = cliente.get("/api/health").headers
+    assert h["x-content-type-options"] == "nosniff"
+    assert h["x-frame-options"] == "DENY"
+    assert "frame-ancestors 'none'" in h["content-security-policy"]
+
+
+def test_cors_so_libera_o_proprio_site(cliente):
+    def origem(o):
+        r = cliente.options("/api/overview", headers={"Origin": o, "Access-Control-Request-Method": "GET"})
+        return r.headers.get("access-control-allow-origin")
+
+    assert origem("http://localhost:3000") == "http://localhost:3000"
+    assert origem("https://alpharadar-b3.up.railway.app") == "https://alpharadar-b3.up.railway.app"
+    assert origem("https://site-malicioso.com") is None
+    assert origem("https://qualquer-outro.up.railway.app") is None  # nem domínios da Railway de terceiros
+
+
+def test_ip_do_cliente_usa_o_ultimo_x_forwarded_for(cliente):
+    class Req:
+        def __init__(self, xff, host="1.2.3.4"):
+            self.headers = {"x-forwarded-for": xff} if xff else {}
+            self.client = type("C", (), {"host": host})()
+
+    assert main._ip_do_cliente(Req("9.9.9.9, 8.8.8.8, 203.0.113.7")) == "203.0.113.7"  # só o do proxy vale
+    assert main._ip_do_cliente(Req("")) == "1.2.3.4"
+
+
+def test_ip_falso_no_cabecalho_nao_burla_o_limite_por_ip(cliente, monkeypatch):
+    monkeypatch.setattr(main, "LIMITE_IA_POR_MINUTO", 3)
+    main._acessos_ia.clear(); main._acessos_globais.clear()
+    codigos = [
+        cliente.post("/api/ai/analyze", json={"pergunta": "panorama"}, headers={"X-Forwarded-For": f"9.9.9.{i}, 203.0.113.7"}).status_code
+        for i in range(6)
+    ]
+    assert codigos == [200, 200, 200, 429, 429, 429]
+
+
+@pytest.mark.parametrize("link,esperado", [
+    ("https://exemplo.com/noticia", "https://exemplo.com/noticia"),
+    ("http://exemplo.com/a?b=1", "http://exemplo.com/a?b=1"),
+    ("javascript:alert(document.cookie)", None),
+    ("JaVaScRiPt:alert(1)", None),
+    ("data:text/html,<script>alert(1)</script>", None),
+    ("//exemplo.com/sem-esquema", None),
+    ("", None),
+    (None, None),
+])
+def test_links_de_noticias_so_aceitam_http(link, esperado):
+    from services import news_service
+    assert news_service._link_seguro(link) == esperado

@@ -163,7 +163,7 @@ O projeto tem dois serviços no mesmo repositório: a API Python e o site Next.j
 1. Na Railway: **New Project → Deploy from GitHub repo** e escolha este repositório.
 2. Em **Settings → Source → Root Directory**, defina `/backend`. O `railway.json` já traz o comando de início e o teste de saúde (`/api/health`).
 3. Em **Settings → Networking**, clique em **Generate Domain** e copie o endereço (algo como `https://alpharadar-api.up.railway.app`).
-4. Em **Variables**, adicione (todas opcionais): `GROQ_API_KEY`, `GEMINI_API_KEY`, `NEWS_RSS_URLS` e as chaves de notícias do `backend/.env.example`. Domínios `*.up.railway.app` já são aceitos pelo CORS; para domínio próprio, defina `CORS_ORIGINS`.
+4. Em **Variables**, adicione (todas opcionais): `GROQ_API_KEY`, `GEMINI_API_KEY`, `NEWS_RSS_URLS` e as chaves de notícias do `backend/.env.example`. O CORS libera só o site da demonstração e o ambiente local; no seu fork, defina `CORS_ORIGINS` com o endereço do seu site.
 
 **2. Serviço do site (`frontend`)**
 1. No mesmo projeto: **New → GitHub Repo** (o mesmo repositório) e defina o Root Directory como `/frontend`.

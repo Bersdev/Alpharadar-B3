@@ -138,7 +138,7 @@ function CartaoNoticia({ n }: { n: Noticia }) {
         <time dateTime={n.data}>{new Date(n.data).toLocaleDateString("pt-BR", { day: "2-digit", month: "long" })}</time>
       </div>
       <h2 className="mt-2 text-lg font-semibold leading-snug">
-        {n.link ? (
+        {n.link && /^https?:\/\//i.test(n.link) ? (
           <a href={n.link} target="_blank" rel="noopener noreferrer" className="hover:text-brand">
             {n.titulo}
           </a>

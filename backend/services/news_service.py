@@ -27,6 +27,7 @@ import math
 import os
 import re
 import unicodedata
+from urllib.parse import urlparse
 import defusedxml.ElementTree as ET  # parser XML seguro contra XXE e "billion laughs"
 from email.utils import parsedate_to_datetime
 from typing import Any
@@ -218,6 +219,20 @@ def _eh_de_mercado(texto: str, tem_tema: bool) -> bool:
     return tem_tema or any(p in t for p in PALAVRAS_MERCADO)
 
 
+def _link_seguro(link: str | None) -> str | None:
+    """
+    Aceita só links http(s). O link vem de feeds e APIs de terceiros e vai parar num <a href>:
+    um "javascript:..." malicioso viraria XSS, então qualquer outro esquema é descartado.
+    """
+    if not link:
+        return None
+    try:
+        partes = urlparse(link.strip())
+    except ValueError:
+        return None
+    return link.strip() if partes.scheme in ("http", "https") and partes.netloc else None
+
+
 def _montar_item(titulo: str, resumo: str, data_iso: str, link: str | None, origem: str,
                  idioma: str = "pt", filtrar: bool = True) -> dict[str, Any] | None:
     """
@@ -242,7 +257,7 @@ def _montar_item(titulo: str, resumo: str, data_iso: str, link: str | None, orig
         "resumo": resumo,
         "categoria": "Mercado" if idioma == "pt" else "Mundo",
         "data": data_iso,
-        "link": link,
+        "link": _link_seguro(link),
         "sentimento": round(sent, 2),
         "impacto": grau_impacto(texto, n_afetados) if idioma == "pt" else "baixo",
         "beneficiados": impacto["beneficiados"],
