@@ -94,24 +94,40 @@ def test_cors_so_libera_o_proprio_site(cliente):
     assert origem("https://qualquer-outro.up.railway.app") is None  # nem domínios da Railway de terceiros
 
 
-def test_ip_do_cliente_usa_o_ultimo_x_forwarded_for(cliente):
+def test_ip_do_cliente_so_confia_no_cabecalho_vindo_de_proxy_interno(cliente):
     class Req:
-        def __init__(self, xff, host="1.2.3.4"):
+        def __init__(self, xff, host):
             self.headers = {"x-forwarded-for": xff} if xff else {}
             self.client = type("C", (), {"host": host})()
 
-    assert main._ip_do_cliente(Req("9.9.9.9, 8.8.8.8, 203.0.113.7")) == "203.0.113.7"  # só o do proxy vale
-    assert main._ip_do_cliente(Req("")) == "1.2.3.4"
+    forjado = "9.9.9.9, 8.8.8.8, 203.0.113.7"
+    assert main._ip_do_cliente(Req(forjado, "100.64.0.11")) == "203.0.113.7"  # proxy da Railway: vale o último
+    assert main._ip_do_cliente(Req(forjado, "127.0.0.1")) == "203.0.113.7"  # local
+    assert main._ip_do_cliente(Req(forjado, "93.184.216.34")) == "93.184.216.34"  # direto da internet (IP público): cabeçalho ignorado
+    assert main._ip_do_cliente(Req("", "100.64.0.11")) == "100.64.0.11"
 
 
-def test_ip_falso_no_cabecalho_nao_burla_o_limite_por_ip(cliente, monkeypatch):
+def test_ip_falso_no_cabecalho_nao_burla_o_limite_por_ip(monkeypatch):
     monkeypatch.setattr(main, "LIMITE_IA_POR_MINUTO", 3)
     main._acessos_ia.clear(); main._acessos_globais.clear()
-    codigos = [
-        cliente.post("/api/ai/analyze", json={"pergunta": "panorama"}, headers={"X-Forwarded-For": f"9.9.9.{i}, 203.0.113.7"}).status_code
-        for i in range(6)
-    ]
+    # cliente que se conecta como o proxy interno da Railway: o último X-Forwarded-For é o visitante real
+    with TestClient(main.app, client=("100.64.0.11", 50000)) as proxy:
+        codigos = [
+            proxy.post("/api/ai/analyze", json={"pergunta": "panorama"}, headers={"X-Forwarded-For": f"9.9.9.{i}, 203.0.113.7"}).status_code
+            for i in range(6)
+        ]
     assert codigos == [200, 200, 200, 429, 429, 429]
+
+
+def test_visitante_direto_nao_forja_ip_pelo_cabecalho(monkeypatch):
+    monkeypatch.setattr(main, "LIMITE_IA_POR_MINUTO", 3)
+    main._acessos_ia.clear(); main._acessos_globais.clear()
+    with TestClient(main.app, client=("93.184.216.34", 50000)) as direto:  # IP público, sem proxy
+        codigos = [
+            direto.post("/api/ai/analyze", json={"pergunta": "panorama"}, headers={"X-Forwarded-For": f"1.1.1.{i}"}).status_code
+            for i in range(5)
+        ]
+    assert codigos == [200, 200, 200, 429, 429]  # mudar o cabeçalho a cada pedido não adianta
 
 
 @pytest.mark.parametrize("link,esperado", [

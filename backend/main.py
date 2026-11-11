@@ -17,6 +17,7 @@ Arquitetura em camadas:
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 import os
 import threading
@@ -107,15 +108,25 @@ _trava_limite = threading.Lock()  # a rota roda em várias threads: leitura, che
 
 def _ip_do_cliente(request: Request) -> str:
     """
-    IP do visitante. Atrás de um proxy (como o da Railway), o IP real é ACRESCENTADO ao fim de
-    X-Forwarded-For; os endereços anteriores são escritos pelo próprio cliente e podem ser
-    falsificados, então usamos o último. Sem o cabeçalho (rodando localmente), vale o IP da conexão.
-    Sem proxy confiável na frente, o cabeçalho poderia ser forjado: por isso o teto GLOBAL também existe.
+    IP do visitante.
+
+    X-Forwarded-For só é confiável quando quem se conectou à API é um proxy da própria plataforma. Atrás
+    de um proxy (como o da Railway), o IP real é ACRESCENTADO ao fim do cabeçalho; os endereços anteriores
+    são escritos pelo cliente e podem ser falsificados, então usamos o último.
+
+    Critério de confiança, sem depender de variável de ambiente: o par da conexão precisa ter endereço
+    NÃO público (rede interna da Railway, 100.64.0.0/10, ou local). Um visitante que chegue direto da
+    internet tem IP público, e o cabeçalho dele é ignorado. O teto GLOBAL de perguntas cobre o resto.
     """
+    par = request.client.host if request.client else ""
+    try:
+        par_interno = not ipaddress.ip_address(par).is_global
+    except ValueError:
+        par_interno = False
     encaminhado = [p.strip() for p in request.headers.get("x-forwarded-for", "").split(",") if p.strip()]
-    if encaminhado:
+    if par_interno and encaminhado:
         return encaminhado[-1]
-    return request.client.host if request.client else "desconhecido"
+    return par or "desconhecido"
 
 
 def _checar_limite_ia(request: Request) -> None:
