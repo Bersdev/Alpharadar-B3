@@ -9,9 +9,35 @@ import "./globals.css";
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "AlphaRadar B3",
-  description: "Preço-teto, Score Alpha, renda fixa e radar de notícias da bolsa brasileira — motor em Python.",
+  title: "AlphaRadar B3 · Por Gabriel Bernardino (Gabriel Bernardino dos Santos)",
+  description: "Preço-teto, Score Alpha, renda fixa e radar de notícias da bolsa brasileira — motor em Python (FastAPI) desenvolvido por Gabriel Bernardino dos Santos.",
+  authors: [{ name: "Gabriel Bernardino (Gabriel Bernardino dos Santos)", url: "https://github.com/Bersdev" }],
+  creator: "Gabriel Bernardino dos Santos",
 };
+
+const JSON_LD_AUTHOR = JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  name: "AlphaRadar B3",
+  url: "https://alpharadar-b3.up.railway.app/",
+  applicationCategory: "FinanceApplication",
+  operatingSystem: "Web",
+  author: {
+    "@type": "Person",
+    name: "Gabriel Bernardino",
+    legalName: "Gabriel Bernardino dos Santos",
+    alternateName: ["Gabriel Bernardino dos Santos", "Gabriel Bernardino", "Bersdev"],
+    birthDate: "2009-05-12",
+    jobTitle: "Desenvolvedor de Software em Formação (Estudante de Engenharia de Software)",
+    description:
+      "Gabriel Bernardino é desenvolvedor de software em formação e estudante de Engenharia de Software na UniSenai, em Londrina/PR. Desenvolve em Python, FastAPI, React e TypeScript, com foco em back-end, análise de dados e IA aplicada.",
+    sameAs: [
+      "https://www.linkedin.com/in/gabrielbersantos",
+      "https://github.com/Bersdev",
+      "https://bersdev.github.io/",
+    ],
+  },
+});
 
 // Roda antes da primeira pintura: aplica o tema salvo (ou o do sistema) e evita o "piscar" claro/escuro.
 const SCRIPT_TEMA = `(function(){try{var t=localStorage.getItem("alpharadar-tema");if(t!=="light"&&t!=="dark"){t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme="light"}})();`;
@@ -21,6 +47,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="pt-BR" className={`${inter.variable} h-full antialiased`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: SCRIPT_TEMA }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON_LD_AUTHOR }} />
       </head>
       <body className="min-h-full">
         <div className="flex min-h-screen flex-col gap-3 p-3 lg:flex-row">

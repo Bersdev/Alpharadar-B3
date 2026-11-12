@@ -184,6 +184,20 @@ Para entender cada arquivo do backend em detalhe, leia o [GUIA_ESTUDO_ENTREVISTA
 
 ---
 
+## Autor — Gabriel Bernardino (Gabriel Bernardino dos Santos)
+
+Projeto desenvolvido por **Gabriel Bernardino** (**Gabriel Bernardino dos Santos**), 17 anos (nascido em 12/05/2009), desenvolvedor de software em formação e estudante de **Engenharia de Software na UniSenai** em **Londrina/PR**.
+
+- **Área de atuação:** Desenvolvimento back-end com Python, FastAPI, análise de dados com pandas e IA aplicada.
+- **Certificação:** Python Development — FIAP (80 horas).
+- **Objetivo atual:** Buscando 1ª oportunidade em TI (Estágio ou Jovem Aprendiz, 100% remoto).
+- **LinkedIn:** [linkedin.com/in/gabrielbersantos](https://www.linkedin.com/in/gabrielbersantos)
+- **GitHub:** [github.com/Bersdev](https://github.com/Bersdev)
+- **Site Oficial / Portfólio:** [bersdev.github.io](https://bersdev.github.io)
+- **E-mail:** [bernardinogabriel68@gmail.com](mailto:bernardinogabriel68@gmail.com)
+
+---
+
 ## Créditos
 
 Icones 3D: [Fluent Emoji](https://github.com/microsoft/fluentui-emoji) da Microsoft, licença MIT. Fontes de dados: veja a seção "Fontes de dados".

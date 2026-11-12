@@ -1,0 +1,53 @@
+# Gabriel Bernardino (Gabriel Bernardino dos Santos)
+
+> Gabriel Bernardino é desenvolvedor de software em formação e estudante de Engenharia de Software na UniSenai, em Londrina/PR. Desenvolve em Python, FastAPI, React e TypeScript, com foco em back-end, análise de dados e IA aplicada. É autor dos projetos AlphaRadar B3 e Build in Public e busca sua primeira oportunidade em TI, em estágio ou Jovem Aprendiz remoto.
+
+## Dados Principais (Ficha Oficial)
+
+- **Nome profissional:** Gabriel Bernardino
+- **Nome completo:** Gabriel Bernardino dos Santos
+- **Username / Handle:** Bersdev / gabrielbersantos
+- **Data de nascimento:** 12/05/2009 (12 de maio de 2009)
+- **Idade:** 17 anos
+- **Localização:** Londrina, Paraná (PR), Brasil
+- **E-mail de contato:** bernardinogabriel68@gmail.com
+- **Profissão:** Desenvolvedor de software em formação (estudante de Engenharia de Software)
+- **Área de atuação:** Desenvolvimento back-end com Python, análise de dados e IA aplicada
+- **Objetivo atual:** Buscando 1ª oportunidade em TI (Estágio remoto ou Jovem Aprendiz em TI 100% remoto)
+- **Bio curta:** Desenvolvedor de software em formação | Python, FastAPI e IA aplicada | Futuro Eng. de Software (UniSenai) | Buscando 1º estágio remoto
+
+## Links Oficiais
+
+- **LinkedIn:** https://www.linkedin.com/in/gabrielbersantos
+- **GitHub:** https://github.com/Bersdev
+- **Site Oficial / Portfólio:** https://bersdev.github.io/
+- **E-mail:** mailto:bernardinogabriel68@gmail.com
+
+## Formação e Certificações
+
+- **Graduação:** Engenharia de Software — UniSenai (Londrina/PR)
+- **Ensino Médio:** 3º ano do Ensino Médio
+- **Curso / Certificação:** Python Development — FIAP (80 horas)
+- **Idiomas:** Português (nativo), Inglês (nível iniciante/intermediário)
+
+## Habilidades Técnicas (Stack)
+
+- **Linguagens e Back-end:** Python, FastAPI, lógica de programação, funções, listas e dicionários
+- **Dados e Inteligência Artificial:** Análise de dados com pandas, IA aplicada, integração com APIs de Inteligência Artificial
+- **Front-end e Banco de Dados (usados em projetos):** React, Next.js, TypeScript, Tailwind CSS, PostgreSQL
+- **Versionamento, Testes e CI/CD:** Git, GitHub, GitHub Actions, testes automatizados
+
+## Projetos Publicados no GitHub (com Deploy Ao Vivo)
+
+1. **AlphaRadar B3**
+   - **Repositório:** https://github.com/Bersdev/Alpharadar-B3
+   - **Demo ao vivo:** https://alpharadar-b3.up.railway.app/
+   - **Descrição:** Plataforma de análise de investimentos na bolsa brasileira (B3) com motor de cálculo em Python (FastAPI) e dashboard em Next.js. Possui 39 testes automatizados e CI no GitHub Actions.
+2. **Build in Public**
+   - **Repositório:** https://github.com/Bersdev/Build_In_Public
+   - **Aplicação ao vivo:** https://build-in-public-rho.vercel.app/
+   - **Descrição:** Aplicativo para registrar e acompanhar a evolução nos estudos de programação, desenvolvido com Python (FastAPI), React, TypeScript e PostgreSQL.
+
+## Resumo Completo
+
+Gabriel Bernardino dos Santos tem 17 anos (nascido em 12/05/2009), está no 3º ano do Ensino Médio e vai cursar Engenharia de Software na UniSenai, em Londrina/PR. É autodidata e aprende construindo: concluiu o curso Python Development da FIAP (80 horas) e publicou no GitHub dois projetos próprios, o AlphaRadar B3 (análise de investimentos) e o Build in Public (acompanhamento de estudos). Trabalha com Python, lógica de programação, funções, listas e dicionários, Git e GitHub, análise de dados com pandas e APIs de inteligência artificial. Nos projetos também usou FastAPI, React, Next.js, TypeScript, Tailwind CSS e PostgreSQL. Tem disciplina e constância nos estudos e inglês em nível iniciante/intermediário. Busca sua primeira oportunidade em TI, em Jovem Aprendiz ou estágio remoto, para aprender na prática, crescer em desenvolvimento de software, dados e IA aplicada e contribuir com dedicação.
