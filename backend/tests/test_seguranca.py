@@ -52,6 +52,34 @@ def test_limitador_janela_desliza(monkeypatch):
     assert lim.permitir("a") is True  # a janela passou
 
 
+def test_ip_bloqueado_nunca_ocupa_memoria():
+    lim = Limitador(por_ip=5, global_=2, max_ips=100)
+    lim.permitir("a")
+    lim.permitir("b")  # teto global atingido
+    tamanho = len(lim._ips)
+    for i in range(5000):
+        assert lim.permitir(f"ip-novo-{i}") is False
+    assert len(lim._ips) == tamanho  # 5000 IPs bloqueados não criaram nenhuma entrada
+
+
+def test_sem_teto_global_muitos_ips_nao_se_bloqueiam_entre_si():
+    lim = Limitador(por_ip=1)  # global_ = None
+    assert all(lim.permitir(f"203.0.113.{i}") for i in range(200))
+
+
+def test_ipv6_do_mesmo_prefixo_64_conta_como_um_so():
+    lim = Limitador(por_ip=2)
+    resultados = [lim.permitir(f"2001:db8:abcd:1::{i:x}") for i in range(1, 6)]  # 5 endereços da mesma rede /64
+    assert resultados == [True, True, False, False, False]
+    assert lim.permitir("2001:db8:abcd:2::1") is True  # outra rede /64 tem o seu próprio limite
+    assert lim.permitir("::ffff:203.0.113.9") == lim.permitir("203.0.113.9")  # IPv4 embutido em IPv6 = o mesmo IPv4
+
+
+def test_apenas_a_ia_tem_teto_global():
+    assert main.limite_geral.global_ is None and main.limite_pesado.global_ is None
+    assert main.limite_ia.global_ == 60
+
+
 def test_limitador_tem_memoria_limitada():
     lim = Limitador(por_ip=5, global_=10**9, max_ips=100)
     for i in range(1000):

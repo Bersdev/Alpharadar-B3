@@ -14,7 +14,7 @@ apague dados.
 
 | Ameaça | Defesa |
 |---|---|
-| Abuso e negação de serviço | Limite de pedidos por IP **e** global: 180/min em toda a API, 20/min nos simuladores, 8/min na IA (60/min no total). Janela deslizante, memória limitada, resposta `429` com `Retry-After`. |
+| Abuso e negação de serviço | Limite de pedidos **por IP** (IPv6 agrupado por /64, para girar de endereço não burlar): 180/min na API, 20/min nos simuladores e 8/min na IA. Só a IA tem teto **global** (60/min), porque protege a cota externa do provedor; nas demais rotas um teto global deixaria poucos endereços bloquearem todos os visitantes. Janela deslizante, memória limitada (pedido bloqueado não ocupa memória), resposta `429` com `Retry-After`. |
 | Corpo de pedido gigante | Máximo de 16 KB (`413`) e `Content-Length` obrigatório nos POST (`411`). Campos com tamanho e faixa validados (Pydantic). |
 | Custo de CPU por pedido | O simulador de renda fixa foi vetorizado: 360 meses caíram de ~460 ms para ~45 ms. |
 | Memória e cache | Cache com tamanho máximo e **uma** busca por chave (vários pedidos simultâneos com cache frio não repetem as consultas lentas). |

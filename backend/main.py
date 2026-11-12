@@ -69,12 +69,14 @@ app = FastAPI(
 # ---------------------------------------------------------------------------
 # Proteção contra abuso (a API é pública e sem login)
 # ---------------------------------------------------------------------------
-# Três limitadores independentes, todos por IP + teto global (cobre quem troca de IP):
+# Três limitadores independentes, todos por IP:
 #   geral  -> qualquer rota /api/*        (um site normal faz ~10 pedidos por página)
-#   pesado -> simuladores (custo de CPU)  (mais apertado)
+#   pesado -> simuladores                 (mais apertado)
 #   ia     -> analista (gasta a cota gratuita do provedor de IA)
-limite_geral = Limitador(int(os.getenv("API_RATE_LIMIT_PER_MINUTE", "180")), int(os.getenv("API_GLOBAL_RATE_LIMIT_PER_MINUTE", "3000")))
-limite_pesado = Limitador(int(os.getenv("HEAVY_RATE_LIMIT_PER_MINUTE", "20")), int(os.getenv("HEAVY_GLOBAL_RATE_LIMIT_PER_MINUTE", "300")))
+# SÓ o da IA tem teto GLOBAL: ele protege um recurso externo limitado. Nas demais rotas (baratas ou em
+# cache) um teto global deixaria poucos endereços bloquearem todos os visitantes legítimos.
+limite_geral = Limitador(int(os.getenv("API_RATE_LIMIT_PER_MINUTE", "180")))
+limite_pesado = Limitador(int(os.getenv("HEAVY_RATE_LIMIT_PER_MINUTE", "20")))
 limite_ia = Limitador(int(os.getenv("AI_RATE_LIMIT_PER_MINUTE", "8")), int(os.getenv("AI_GLOBAL_RATE_LIMIT_PER_MINUTE", "60")))
 ROTAS_PESADAS = {"/api/simulate/valuation", "/api/simulate/fixed-income"}
 TAMANHO_MAXIMO_CORPO = 16_384  # bytes: os pedidos legítimos têm algumas centenas
