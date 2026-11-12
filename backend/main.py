@@ -87,11 +87,6 @@ app.add_middleware(
 async def cabecalhos_de_seguranca(request: Request, call_next):
     """Cabeçalhos que endurecem o navegador de quem consome a API (e a documentação em /docs)."""
     resposta = await call_next(request)
-    if request.headers.get("x-sonda-ip") == "1":  # TEMPORÁRIO: diagnóstico do proxy da Railway (remover)
-        for nome in ("x-forwarded-for", "x-real-ip", "x-envoy-external-address", "x-forwarded-proto"):
-            resposta.headers[f"X-Sonda-{nome}"] = request.headers.get(nome, "(ausente)")
-        resposta.headers["X-Sonda-par"] = request.client.host if request.client else "(sem par)"
-        resposta.headers["X-Sonda-ip-calculado"] = _ip_do_cliente(request)
     resposta.headers.setdefault("X-Content-Type-Options", "nosniff")
     resposta.headers.setdefault("Referrer-Policy", "no-referrer")
     resposta.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
@@ -115,22 +110,28 @@ def _ip_do_cliente(request: Request) -> str:
     """
     IP do visitante.
 
-    X-Forwarded-For só é confiável quando quem se conectou à API é um proxy da própria plataforma. Atrás
-    de um proxy (como o da Railway), o IP real é ACRESCENTADO ao fim do cabeçalho; os endereços anteriores
-    são escritos pelo cliente e podem ser falsificados, então usamos o último.
+    Os cabeçalhos de IP só são confiáveis quando quem se conectou à API é um proxy da própria plataforma.
+    Critério, sem depender de variável de ambiente: o par da conexão precisa ter endereço NÃO público
+    (rede interna da Railway, 100.64.0.0/10, ou local). Quem chega direto da internet tem IP público, e os
+    cabeçalhos dele são ignorados.
 
-    Critério de confiança, sem depender de variável de ambiente: o par da conexão precisa ter endereço
-    NÃO público (rede interna da Railway, 100.64.0.0/10, ou local). Um visitante que chegue direto da
-    internet tem IP público, e o cabeçalho dele é ignorado. O teto GLOBAL de perguntas cobre o resto.
+    Medido na Railway: o proxy SOBRESCREVE X-Real-IP com o IP real do visitante (um valor falso enviado pelo
+    cliente é descartado), então ele é a fonte preferida. No X-Forwarded-For o IP real vem primeiro e o
+    ÚLTIMO endereço é o do proxy de borda (que muda entre pedidos): por isso o "último" só serve de
+    reserva para proxies que apenas acrescentam. O teto GLOBAL de perguntas cobre qualquer falha aqui.
     """
     par = request.client.host if request.client else ""
     try:
         par_interno = not ipaddress.ip_address(par).is_global
     except ValueError:
         par_interno = False
-    encaminhado = [p.strip() for p in request.headers.get("x-forwarded-for", "").split(",") if p.strip()]
-    if par_interno and encaminhado:
-        return encaminhado[-1]
+    if par_interno:
+        real = request.headers.get("x-real-ip", "").strip()
+        if real:
+            return real
+        encaminhado = [p.strip() for p in request.headers.get("x-forwarded-for", "").split(",") if p.strip()]
+        if encaminhado:
+            return encaminhado[-1]
     return par or "desconhecido"
 
 

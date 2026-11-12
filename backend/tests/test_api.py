@@ -94,17 +94,20 @@ def test_cors_so_libera_o_proprio_site(cliente):
     assert origem("https://qualquer-outro.up.railway.app") is None  # nem domínios da Railway de terceiros
 
 
-def test_ip_do_cliente_so_confia_no_cabecalho_vindo_de_proxy_interno(cliente):
+def test_ip_do_cliente_so_confia_nos_cabecalhos_vindos_de_proxy_interno(cliente):
     class Req:
-        def __init__(self, xff, host):
-            self.headers = {"x-forwarded-for": xff} if xff else {}
+        def __init__(self, host, **cab):
+            self.headers = {k.replace("_", "-"): v for k, v in cab.items()}
             self.client = type("C", (), {"host": host})()
 
     forjado = "9.9.9.9, 8.8.8.8, 203.0.113.7"
-    assert main._ip_do_cliente(Req(forjado, "100.64.0.11")) == "203.0.113.7"  # proxy da Railway: vale o último
-    assert main._ip_do_cliente(Req(forjado, "127.0.0.1")) == "203.0.113.7"  # local
-    assert main._ip_do_cliente(Req(forjado, "93.184.216.34")) == "93.184.216.34"  # direto da internet (IP público): cabeçalho ignorado
-    assert main._ip_do_cliente(Req("", "100.64.0.11")) == "100.64.0.11"
+    # Railway: X-Real-IP é do visitante real; o último do X-Forwarded-For é o proxy de borda (varia)
+    assert main._ip_do_cliente(Req("100.64.0.11", x_real_ip="191.37.37.101", x_forwarded_for="191.37.37.101, 46.151.194.129")) == "191.37.37.101"
+    assert main._ip_do_cliente(Req("100.64.0.11", x_forwarded_for=forjado)) == "203.0.113.7"  # proxy que só acrescenta: vale o último
+    assert main._ip_do_cliente(Req("127.0.0.1", x_forwarded_for=forjado)) == "203.0.113.7"  # local
+    # visitante direto da internet (IP público): cabeçalhos ignorados
+    assert main._ip_do_cliente(Req("93.184.216.34", x_forwarded_for=forjado, x_real_ip="7.7.7.7")) == "93.184.216.34"
+    assert main._ip_do_cliente(Req("100.64.0.11")) == "100.64.0.11"
 
 
 def test_ip_falso_no_cabecalho_nao_burla_o_limite_por_ip(monkeypatch):
@@ -113,7 +116,11 @@ def test_ip_falso_no_cabecalho_nao_burla_o_limite_por_ip(monkeypatch):
     # cliente que se conecta como o proxy interno da Railway: o último X-Forwarded-For é o visitante real
     with TestClient(main.app, client=("100.64.0.11", 50000)) as proxy:
         codigos = [
-            proxy.post("/api/ai/analyze", json={"pergunta": "panorama"}, headers={"X-Forwarded-For": f"9.9.9.{i}, 203.0.113.7"}).status_code
+            proxy.post(
+                "/api/ai/analyze",
+                json={"pergunta": "panorama"},
+                headers={"X-Real-IP": "191.37.37.101", "X-Forwarded-For": f"191.37.37.101, 46.151.194.{i}"},  # borda varia
+            ).status_code
             for i in range(6)
         ]
     assert codigos == [200, 200, 200, 429, 429, 429]
