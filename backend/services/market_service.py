@@ -31,6 +31,7 @@ import os
 import random
 import threading
 import time
+from collections import OrderedDict
 import zlib
 from datetime import date, timedelta
 from pathlib import Path
@@ -55,22 +56,51 @@ def modo_offline() -> bool:
 # ---------------------------------------------------------------------------
 
 class CacheTTL:
-    """Dicionário em que cada valor "expira" após ``ttl`` segundos."""
+    """
+    Cache em memória em que cada valor "expira" após ``ttl`` segundos.
 
-    def __init__(self) -> None:
-        self._dados: dict[str, tuple[float, Any]] = {}
+    Defesas contra abuso (a API é pública):
+      * Tamanho máximo (``max_itens``): ao passar do limite, descarta os itens menos recentes. Sem isso, quem
+        mandasse milhares de perguntas diferentes à IA encheria a memória do servidor.
+      * Uma busca por chave ("single-flight"): se 50 pedidos chegam ao mesmo tempo com o cache frio, só UM
+        executa a consulta lenta (Yahoo, IA); os outros esperam e reaproveitam o resultado.
+    """
+
+    def __init__(self, max_itens: int = 2000) -> None:
+        self._dados: OrderedDict[str, tuple[float, Any]] = OrderedDict()
         self._trava = threading.Lock()
+        self._travas_por_chave: dict[str, threading.Lock] = {}
+        self._max_itens = max_itens
 
-    def obter_ou_calcular(self, chave: str, ttl: float, calcular: Callable[[], Any]) -> Any:
-        agora = time.time()
+    def _fresco(self, chave: str, ttl: float) -> tuple[bool, Any]:
         with self._trava:
             item = self._dados.get(chave)
-            if item and agora - item[0] < ttl:
-                return item[1]
-        valor = calcular()                       # fora da trava: pode ser lento
+            if item and time.time() - item[0] < ttl:
+                self._dados.move_to_end(chave)
+                return True, item[1]
+        return False, None
+
+    def obter_ou_calcular(self, chave: str, ttl: float, calcular: Callable[[], Any]) -> Any:
+        achou, valor = self._fresco(chave, ttl)
+        if achou:
+            return valor
         with self._trava:
-            self._dados[chave] = (time.time(), valor)
-        return valor
+            trava_da_chave = self._travas_por_chave.setdefault(chave, threading.Lock())
+        with trava_da_chave:
+            achou, valor = self._fresco(chave, ttl)  # outro pedido pode ter calculado enquanto esperávamos
+            if achou:
+                return valor
+            try:
+                valor = calcular()                   # fora da trava geral: pode ser lento
+            finally:
+                with self._trava:
+                    self._travas_por_chave.pop(chave, None)
+            with self._trava:
+                self._dados[chave] = (time.time(), valor)
+                self._dados.move_to_end(chave)
+                while len(self._dados) > self._max_itens:
+                    self._dados.popitem(last=False)
+            return valor
 
 
 _cache = CacheTTL()

@@ -25,11 +25,12 @@ Fontes e o que valem para este projeto (limites do plano gratuito):
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 from typing import Any, Callable
 
-import requests
+from services.http_seguro import baixar
 
 logger = logging.getLogger("alpharadar.newsapis")
 
@@ -45,9 +46,7 @@ def _chave(nome: str) -> str:
 
 
 def _get(url: str, **kwargs: Any) -> Any:
-    resp = requests.get(url, timeout=TIMEOUT, headers={**HEADERS, **kwargs.pop("headers", {})}, **kwargs)
-    resp.raise_for_status()
-    return resp.json()
+    return json.loads(baixar(url, timeout=TIMEOUT, headers={**HEADERS, **kwargs.pop("headers", {})}, **kwargs))
 
 
 def _item(titulo: str | None, resumo: str | None, data: str | None, link: str | None,

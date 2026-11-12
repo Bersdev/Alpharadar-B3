@@ -147,11 +147,12 @@ Fundamentos como LPA, VPA e ROE ficam em `fallback_b3.json` e mudam a cada balan
 ```bash
 cd backend
 pip install -r requirements-dev.txt
-pytest                                  # 39 testes dos motores e da API (offline, sem chaves)
+pytest                                  # 81 testes: motores, API e segurança (offline, sem chaves)
 python scripts/atualizar_fallback.py    # atualiza o catálogo de reserva com dados reais do Yahoo
+python scripts/verificar_segredos.py    # procura chaves e arquivos sensíveis nos arquivos versionados
 ```
 
-O GitHub Actions (`.github/workflows/ci.yml`) roda os testes do backend e o lint e build do frontend a cada envio.
+O GitHub Actions (`.github/workflows/ci.yml`) roda a varredura de segredos, os testes e o `pip-audit` do backend, e o lint, o build e o `npm audit` do frontend a cada envio. Veja o [SECURITY.md](SECURITY.md) para as defesas de segurança.
 
 ---
 

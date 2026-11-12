@@ -51,8 +51,8 @@ def test_analista_funciona_sem_chave_e_entende_nomes_de_empresas(cliente):
 
 
 def test_limite_de_uso_da_ia(cliente, monkeypatch):
-    monkeypatch.setattr(main, "LIMITE_IA_POR_MINUTO", 2)
-    main._acessos_ia.clear(); main._acessos_globais.clear()
+    monkeypatch.setattr(main.limite_ia, "por_ip", 2)
+    main.limite_ia.limpar()
     codigos = [cliente.post("/api/ai/analyze", json={"pergunta": "panorama"}).status_code for _ in range(4)]
     assert codigos == [200, 200, 429, 429]
 
@@ -111,8 +111,8 @@ def test_ip_do_cliente_so_confia_nos_cabecalhos_vindos_de_proxy_interno(cliente)
 
 
 def test_ip_falso_no_cabecalho_nao_burla_o_limite_por_ip(monkeypatch):
-    monkeypatch.setattr(main, "LIMITE_IA_POR_MINUTO", 3)
-    main._acessos_ia.clear(); main._acessos_globais.clear()
+    monkeypatch.setattr(main.limite_ia, "por_ip", 3)
+    main.limite_ia.limpar()
     # cliente que se conecta como o proxy interno da Railway: o último X-Forwarded-For é o visitante real
     with TestClient(main.app, client=("100.64.0.11", 50000)) as proxy:
         codigos = [
@@ -127,8 +127,8 @@ def test_ip_falso_no_cabecalho_nao_burla_o_limite_por_ip(monkeypatch):
 
 
 def test_visitante_direto_nao_forja_ip_pelo_cabecalho(monkeypatch):
-    monkeypatch.setattr(main, "LIMITE_IA_POR_MINUTO", 3)
-    main._acessos_ia.clear(); main._acessos_globais.clear()
+    monkeypatch.setattr(main.limite_ia, "por_ip", 3)
+    main.limite_ia.limpar()
     with TestClient(main.app, client=("93.184.216.34", 50000)) as direto:  # IP público, sem proxy
         codigos = [
             direto.post("/api/ai/analyze", json={"pergunta": "panorama"}, headers={"X-Forwarded-For": f"1.1.1.{i}"}).status_code

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState, type FormEvent } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { fmtBRL, fmtNum, fmtPct, fmtPreco, fmtSinal, type AtivoAvaliado, type ListaAtivos } from "@/lib/api";
-import { salvarCarteira, useCarteira } from "@/lib/storage";
+import { LIMITE_MAXIMO, salvarCarteira, useCarteira } from "@/lib/storage";
 import { useApi } from "@/lib/useApi";
 import { RoscaChart, coresRosca } from "@/components/charts";
 import { Delta, Disclaimer, ErrorState, Loading, PageHeader, Panel } from "@/components/ui";
@@ -51,7 +51,7 @@ export default function CarteiraPage() {
     e.preventDefault();
     const q = Number(qtd.replace(",", "."));
     const preco = Number(pm.replace(",", "."));
-    if (!ticker || !(q > 0) || !(preco > 0)) return;
+    if (!ticker || !Number.isFinite(q) || !Number.isFinite(preco) || !(q > 0) || !(preco > 0) || q > LIMITE_MAXIMO || preco > LIMITE_MAXIMO) return;
     const atual = posicoes.find((p) => p.ticker === ticker);
     if (atual) {
       // novo preço médio = média ponderada pelas quantidades

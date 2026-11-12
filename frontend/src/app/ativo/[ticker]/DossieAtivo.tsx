@@ -15,7 +15,7 @@ export function DossieAtivo() {
   const params = useParams<{ ticker: string }>();
   const ticker = (params.ticker ?? "BBAS3").toUpperCase();
   const router = useRouter();
-  const { data, error, loading, reload } = useApi<DetalheAtivo>(`/api/assets/${ticker}`);
+  const { data, error, loading, reload } = useApi<DetalheAtivo>(`/api/assets/${encodeURIComponent(ticker)}`);
 
   return (
     <>

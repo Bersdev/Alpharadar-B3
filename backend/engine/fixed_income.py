@@ -130,19 +130,24 @@ def _curva_tributada(
     """
     n = len(aportes)
     taxa_liq_custodia = (1 + taxa_mensal) * (1 - custodia_anual / 12) - 1
-    bruto = np.zeros(n)
-    liquido = np.zeros(n)
-    for m in range(n):
-        for i in range(m + 1):          # lotes aplicados até o mês m
-            if aportes[i] == 0:
-                continue
-            idade_meses = m - i
-            valor = aportes[i] * (1 + taxa_liq_custodia) ** idade_meses
-            lucro = valor - aportes[i]
-            bruto[m] += valor
-            imposto = 0.0 if isento or lucro <= 0 else lucro * aliquota_ir(idade_meses * DIAS_POR_MES)
-            liquido[m] += valor - imposto
-    return bruto, liquido
+    # Versão vetorizada (numpy): a matriz tem uma linha por mês de resgate (m) e uma coluna por lote (i).
+    # O loop duplo em Python custava ~0,5 s para 360 meses; como a rota é pública, isso era um vetor de
+    # negação de serviço (poucos pedidos seguidos saturavam a CPU).
+    mes = np.arange(n)[:, None]
+    lote = np.arange(n)[None, :]
+    idade = mes - lote                                  # meses que o lote i está aplicado no mês m
+    existe = (idade >= 0) & (aportes[None, :] != 0)     # só lotes já feitos e com valor
+    idade_ok = np.where(existe, idade, 0)
+    valor = np.where(existe, aportes[None, :] * (1 + taxa_liq_custodia) ** idade_ok, 0.0)
+    bruto = valor.sum(axis=1)
+    if isento:
+        return bruto, bruto.copy()
+    lucro = np.where(existe, valor - aportes[None, :], 0.0)
+    dias = idade_ok * DIAS_POR_MES
+    aliquota = np.select([dias <= limite for limite, _ in TABELA_IR_REGRESSIVA],
+                         [taxa for _, taxa in TABELA_IR_REGRESSIVA], default=ALIQUOTA_IR_LONGO_PRAZO)
+    imposto = np.where(lucro > 0, lucro * aliquota, 0.0)
+    return bruto, (valor - imposto).sum(axis=1)
 
 
 def simular_renda_fixa(p: ParametrosSimulacao) -> dict[str, Any]:

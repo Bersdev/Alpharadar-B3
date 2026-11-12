@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { Loader2, SendHorizontal } from "lucide-react";
-import { api, nomeIA, type RespostaIA } from "@/lib/api";
+import { api, type RespostaIA } from "@/lib/api";
 import { useApi } from "@/lib/useApi";
 import { AnalysisView } from "@/components/AnalysisView";
 import { Disclaimer, ErrorState, PageHeader, Panel } from "@/components/ui";
@@ -20,7 +20,7 @@ export default function AnalistaIAPage() {
   const [historico, setHistorico] = useState<RespostaIA[]>([]);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const { data: saude } = useApi<{ ia_generativa: boolean; ia_provedor: string | null }>("/api/health");
+  const { data: saude } = useApi<{ ia_generativa: boolean }>("/api/health");
 
   async function perguntar(texto: string) {
     const q = texto.trim();
@@ -52,7 +52,7 @@ export default function AnalistaIAPage() {
         description="Pergunte sobre risco, histórico, efeito dos juros ou compare renda fixa com ações e FIIs. As contas são feitas pelo motor Python; a IA só interpreta os números."
         aside={saude && (
           <span className="rounded-full border border-line px-3 py-1 text-xs text-muted">
-            {saude.ia_generativa ? `${nomeIA(saude.ia_provedor)} conectado` : "Motor de regras em Python (sem chave de IA)"}
+            {saude.ia_generativa ? "IA generativa conectada" : "Motor de regras em Python (sem chave de IA)"}
           </span>
         )}
       />

@@ -28,6 +28,7 @@ from zoneinfo import ZoneInfo
 import requests
 
 from services import b3_service, market_service
+from services.http_seguro import baixar
 
 logger = logging.getLogger("alpharadar.global")
 
@@ -208,9 +209,7 @@ def _buscar_focus() -> dict[str, Any]:
     for indicador, rotulo, unidade in INDICADORES_FOCUS:
         # A API OData do BCB não aceita "+" como espaço: a URL é montada à mão (requests converte espaço em %20).
         consulta = f"$top=40&$filter=Indicador eq '{indicador}' and baseCalculo eq 0&$orderby=Data desc&$format=json"
-        resp = requests.get(f"{URL_FOCUS}?{consulta}", timeout=15)
-        resp.raise_for_status()
-        linhas = resp.json()["value"]
+        linhas = json.loads(baixar(f"{URL_FOCUS}?{consulta}", timeout=15))["value"]
         if not linhas:
             continue
         ultima = linhas[0]["Data"]
@@ -283,9 +282,7 @@ def _buscar_agenda() -> list[dict[str, Any]]:
     eventos: list[dict[str, Any]] = []
     for url in URLS_AGENDA:
         try:
-            resp = requests.get(url, timeout=15, headers={"User-Agent": "Mozilla/5.0 AlphaRadarB3"})
-            resp.raise_for_status()
-            bruto = resp.json()
+            bruto = json.loads(baixar(url, timeout=15, headers={"User-Agent": "Mozilla/5.0 AlphaRadarB3"}))
         except Exception as erro:  # noqa: BLE001
             logger.warning("Agenda %s indisponível: %s", url.rsplit("/", 1)[-1], type(erro).__name__)
             continue

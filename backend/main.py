@@ -21,8 +21,6 @@ import ipaddress
 import logging
 import os
 import threading
-import time
-from collections import OrderedDict
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -36,6 +34,7 @@ load_dotenv()  # lê backend/.env (se existir) ANTES de importar os serviços
 
 from engine import ai_analyst, fixed_income, valuation  # noqa: E402
 from services import global_service, market_service, news_service  # noqa: E402
+from services.limites import Limitador  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("alpharadar.api")
@@ -67,6 +66,43 @@ app = FastAPI(
     ),
 )
 
+# ---------------------------------------------------------------------------
+# Proteção contra abuso (a API é pública e sem login)
+# ---------------------------------------------------------------------------
+# Três limitadores independentes, todos por IP + teto global (cobre quem troca de IP):
+#   geral  -> qualquer rota /api/*        (um site normal faz ~10 pedidos por página)
+#   pesado -> simuladores (custo de CPU)  (mais apertado)
+#   ia     -> analista (gasta a cota gratuita do provedor de IA)
+limite_geral = Limitador(int(os.getenv("API_RATE_LIMIT_PER_MINUTE", "180")), int(os.getenv("API_GLOBAL_RATE_LIMIT_PER_MINUTE", "3000")))
+limite_pesado = Limitador(int(os.getenv("HEAVY_RATE_LIMIT_PER_MINUTE", "20")), int(os.getenv("HEAVY_GLOBAL_RATE_LIMIT_PER_MINUTE", "300")))
+limite_ia = Limitador(int(os.getenv("AI_RATE_LIMIT_PER_MINUTE", "8")), int(os.getenv("AI_GLOBAL_RATE_LIMIT_PER_MINUTE", "60")))
+ROTAS_PESADAS = {"/api/simulate/valuation", "/api/simulate/fixed-income"}
+TAMANHO_MAXIMO_CORPO = 16_384  # bytes: os pedidos legítimos têm algumas centenas
+
+
+def _recusar(status: int, detalhe: str, retry: bool = False) -> JSONResponse:
+    return JSONResponse(status_code=status, content={"detail": detalhe}, headers={"Retry-After": "60"} if retry else None)
+
+
+@app.middleware("http")
+async def protecao_contra_abuso(request: Request, call_next):
+    """Recusa corpos enormes e pedidos em excesso ANTES de qualquer processamento caro."""
+    if request.method == "POST":
+        tamanho = request.headers.get("content-length")
+        if tamanho is None:
+            return _recusar(411, "Informe o tamanho do corpo (Content-Length).")
+        if not tamanho.isdigit() or int(tamanho) > TAMANHO_MAXIMO_CORPO:
+            return _recusar(413, "Corpo do pedido grande demais.")
+    caminho = request.url.path
+    if caminho.startswith("/api/"):
+        ip = _ip_do_cliente(request)
+        if not limite_geral.permitir(ip):
+            return _recusar(429, "Muitos pedidos. Aguarde um minuto e tente de novo.", retry=True)
+        if caminho in ROTAS_PESADAS and not limite_pesado.permitir(ip):
+            return _recusar(429, "Muitas simulações seguidas. Aguarde um minuto e tente de novo.", retry=True)
+    return await call_next(request)
+
+
 # CORS: só o seu site (e o ambiente local) podem ler a API pelo navegador de um visitante.
 # A demonstração pública já vem liberada; num fork, defina CORS_ORIGINS com o endereço do seu site
 # (várias URLs separadas por vírgula).
@@ -94,16 +130,6 @@ async def cabecalhos_de_seguranca(request: Request, call_next):
         resposta.headers.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
         resposta.headers.setdefault("X-Frame-Options", "DENY")
     return resposta
-
-
-# Limite de uso da rota de IA (por IP): em um site público, sem isso qualquer pessoa
-# poderia esgotar a cota gratuita do provedor de IA.
-LIMITE_IA_POR_MINUTO = int(os.getenv("AI_RATE_LIMIT_PER_MINUTE", "8"))      # por IP
-LIMITE_IA_GLOBAL_POR_MINUTO = int(os.getenv("AI_GLOBAL_RATE_LIMIT_PER_MINUTE", "60"))  # todos juntos
-MAX_IPS_RASTREADOS = 5000
-_acessos_ia: "OrderedDict[str, list[float]]" = OrderedDict()
-_acessos_globais: list[float] = []
-_trava_limite = threading.Lock()  # a rota roda em várias threads: leitura, checagem e escrita são uma operação só
 
 
 def _ip_do_cliente(request: Request) -> str:
@@ -136,26 +162,15 @@ def _ip_do_cliente(request: Request) -> str:
 
 
 def _checar_limite_ia(request: Request) -> None:
-    agora = time.time()
-    ip = _ip_do_cliente(request)
-    with _trava_limite:
-        # Teto global: mesmo quem consiga trocar de IP não passa deste total por minuto.
-        _acessos_globais[:] = [t for t in _acessos_globais if agora - t < 60]
-        recentes = [t for t in _acessos_ia.get(ip, []) if agora - t < 60]
-        if len(recentes) >= LIMITE_IA_POR_MINUTO or len(_acessos_globais) >= LIMITE_IA_GLOBAL_POR_MINUTO:
-            raise HTTPException(status_code=429, detail="Muitas perguntas seguidas. Aguarde um minuto e tente de novo.")
-        recentes.append(agora)
-        _acessos_globais.append(agora)
-        _acessos_ia[ip] = recentes
-        _acessos_ia.move_to_end(ip)
-        while len(_acessos_ia) > MAX_IPS_RASTREADOS:  # descarta os IPs menos recentes (LRU)
-            _acessos_ia.popitem(last=False)
+    if not limite_ia.permitir(_ip_do_cliente(request)):
+        raise HTTPException(status_code=429, detail="Muitas perguntas seguidas. Aguarde um minuto e tente de novo.")
 
 
 @app.exception_handler(Exception)
-async def erro_inesperado(_: Request, erro: Exception) -> JSONResponse:
+async def erro_inesperado(request: Request, erro: Exception) -> JSONResponse:
     """Rede de segurança: qualquer erro não tratado vira uma resposta amigável."""
-    logger.exception("Erro inesperado: %s", erro)
+    # Só o tipo do erro e a rota: a mensagem de exceções de rede pode conter a URL com a chave de API.
+    logger.error("Erro inesperado em %s: %s", request.url.path, type(erro).__name__)
     return JSONResponse(
         status_code=503,
         content={"erro": "Serviço temporariamente indisponível. Tente novamente em instantes."},
@@ -219,8 +234,6 @@ def saude() -> dict[str, Any]:
         "status": "ok",
         "modo_offline": market_service.modo_offline(),
         "ia_generativa": ai_analyst.llm_disponivel(),
-        "ia_provedor": ai_analyst.provedor_ia(),
-        "ia_provedores": ai_analyst.provedores_ativos(),
     }
 
 

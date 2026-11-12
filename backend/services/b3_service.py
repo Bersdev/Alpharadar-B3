@@ -182,5 +182,5 @@ def cotacoes_brapi(tickers: list[str]) -> dict[str, dict[str, float]]:
                 "variacao_dia": round(float(item.get("regularMarketChangePercent") or 0), 2),
             }
         except Exception as erro:  # noqa: BLE001
-            logger.debug("brapi falhou para %s: %s", ticker, erro)
+            logger.debug("brapi falhou para %s: %s", ticker, type(erro).__name__)
     return resultado

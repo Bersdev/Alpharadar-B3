@@ -35,6 +35,7 @@ from typing import Any
 import requests
 
 from services import market_service, news_apis
+from services.http_seguro import baixar, url_http_valida
 
 logger = logging.getLogger("alpharadar.news")
 
@@ -252,7 +253,7 @@ def _montar_item(titulo: str, resumo: str, data_iso: str, link: str | None, orig
         impacto = {"temas": [], "beneficiados": [], "prejudicados": [], "renda_fixa": "Notícia global: contexto para câmbio e juros."}
     n_afetados = len(impacto["beneficiados"]) + len(impacto["prejudicados"])
     return {
-        "id": "n-" + hashlib.md5(titulo.encode()).hexdigest()[:10],
+        "id": "n-" + hashlib.sha256(titulo.encode()).hexdigest()[:10],
         "titulo": titulo,
         "resumo": resumo,
         "categoria": "Mercado" if idioma == "pt" else "Mundo",
@@ -270,10 +271,9 @@ def _montar_item(titulo: str, resumo: str, data_iso: str, link: str | None, orig
 
 
 def _ler_rss(url: str, limite: int = 15) -> list[dict[str, Any]]:
-    resp = requests.get(url, timeout=6, headers={"User-Agent": "AlphaRadarB3/1.0"})
-    resp.raise_for_status()
+    conteudo = baixar(url, timeout=6, headers={"User-Agent": "AlphaRadarB3/1.0"})  # teto de 2 MB
     itens = []
-    for item in ET.fromstring(resp.content).iter("item"):
+    for item in ET.fromstring(conteudo).iter("item"):
         titulo = (item.findtext("title") or "").strip()
         resumo = re.sub(r"<[^>]+>", "", item.findtext("description") or "").strip()[:400]
         data_txt = item.findtext("pubDate") or ""
@@ -300,7 +300,7 @@ def _ler_apis() -> list[dict[str, Any]]:
 
 def _buscar_rss_e_fallback() -> list[dict[str, Any]]:
     noticias: list[dict[str, Any]] = []
-    urls = [u.strip() for u in os.getenv("NEWS_RSS_URLS", "").split(",") if u.strip()]
+    urls = [u.strip() for u in os.getenv("NEWS_RSS_URLS", "").split(",") if u.strip() and url_http_valida(u)]
     if urls and not market_service.modo_offline():
         for url in urls:
             try:

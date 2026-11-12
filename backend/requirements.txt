@@ -1,21 +1,25 @@
 # ============================================================
 # AlphaRadar B3 — dependências do backend (Python 3.11+)
 # Instale com:  pip install -r requirements.txt
+#
+# Versões FIXADAS (==) de propósito: um build nunca puxa, sozinho, uma versão nova e não testada
+# (proteção contra pacote comprometido). O Dependabot abre PRs para atualizar; o CI roda os testes
+# e o pip-audit antes de qualquer mudança entrar.
 # ============================================================
 
 # --- Servidor web ---
-fastapi>=0.115          # framework da API REST (gera /docs automaticamente)
-uvicorn>=0.30          # servidor ASGI que executa o FastAPI
+fastapi==0.162.2        # framework da API REST (gera /docs automaticamente)
+uvicorn==0.54.0         # servidor ASGI que executa o FastAPI
 
 # --- Dados e matemática ---
-pandas>=2.2             # tabelas (DataFrames) para histórico e simulações
-numpy>=1.26             # cálculos vetoriais
+pandas==3.1.1           # tabelas (DataFrames) para histórico e simulações
+numpy==2.5.4            # cálculos vetoriais
 
 # --- Coleta de dados de mercado ---
-yfinance>=0.2.50        # cotações e dividendos da B3 (tickers com sufixo .SA)
-requests>=2.32          # chamadas HTTP: API SGS do Banco Central e brapi.dev
-defusedxml>=0.7         # leitura SEGURA de feeds RSS (XML) externos
+yfinance==1.8.0         # cotações e dividendos da B3 e dos EUA
+requests==2.34.2        # chamadas HTTP: Banco Central, Focus, feeds e APIs de notícias
+defusedxml==0.7.1       # leitura SEGURA de feeds RSS (XML) externos
 
 # --- Configuração e IA ---
-python-dotenv>=1.0      # lê o arquivo .env (chaves de API opcionais)
-anthropic>=0.70         # SDK oficial da Anthropic (opcional: só usado se houver ANTHROPIC_API_KEY)
+python-dotenv==1.2.4    # lê o arquivo .env (chaves de API opcionais)
+anthropic==2.7.0        # SDK oficial da Anthropic (opcional: só usado se houver ANTHROPIC_API_KEY)
