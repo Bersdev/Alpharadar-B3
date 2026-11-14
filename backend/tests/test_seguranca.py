@@ -279,5 +279,110 @@ def test_noticias_nao_aceitam_url_de_feed_fora_de_http(monkeypatch):
     monkeypatch.setattr(news_service, "_ler_rss", lambda url, **k: chamadas.append(url) or [])
     monkeypatch.setattr(market_service, "modo_offline", lambda: False)
     monkeypatch.setattr(news_service.news_apis, "coletar", lambda: [])
+    monkeypatch.setattr(news_service, "_ler_google_noticias", lambda: [])
+    monkeypatch.setattr(news_service, "_ler_cvm", lambda: [])
     news_service._buscar_rss_e_fallback()
     assert chamadas == []
+
+
+# ---------------------------------------------------------------- CVM, Google Notícias e brapi
+def _zip_ipe(linhas: list[str]) -> bytes:
+    import io
+    import zipfile
+
+    cab = "CNPJ_Companhia;Nome_Companhia;Codigo_CVM;Data_Referencia;Categoria;Tipo;Especie;Assunto;Data_Entrega;Tipo_Apresentacao;Protocolo_Entrega;Versao;Link_Download"
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("ipe_cia_aberta_2026.csv", ("\n".join([cab] + linhas)).encode("latin-1"))
+    return buf.getvalue()
+
+
+def test_cvm_filtra_empresas_categorias_e_links(monkeypatch):
+    from datetime import date
+
+    from services import cvm_service
+
+    hoje = date.today().isoformat()
+    base = f"00;PETROBRAS;9512;{hoje};%s;;;%s;{hoje};AP;P%s;1;%s"
+    linhas = [
+        base % ("Fato Relevante", "Descoberta de petróleo", 1, "https://www.rad.cvm.gov.br/ok"),
+        base % ("Fato Relevante", "Link malicioso", 2, "javascript:alert(1)"),
+        base % ("Fato Relevante", "Link de outro site", 3, "https://evil.example/x"),
+        base % ("Assembleia", "Categoria ignorada", 4, "https://www.rad.cvm.gov.br/a"),
+        f"00;EMPRESA FORA DA LISTA;99999;{hoje};Fato Relevante;;;Ignorada;{hoje};AP;P5;1;https://www.rad.cvm.gov.br/b",
+    ]
+    monkeypatch.setattr(cvm_service, "baixar", lambda *a, **k: _zip_ipe(linhas))
+    itens = cvm_service._ler_ano(date.today().year, date(2000, 1, 1))
+    assert {i["assunto"] for i in itens} == {"Descoberta de petróleo", "Link malicioso", "Link de outro site"}
+    por_assunto = {i["assunto"]: i for i in itens}
+    assert por_assunto["Descoberta de petróleo"]["link"].startswith("https://www.rad.cvm.gov.br")
+    assert por_assunto["Link malicioso"]["link"] is None and por_assunto["Link de outro site"]["link"] is None
+    assert all(i["ticker"] == "PETR4" for i in itens)
+
+
+def test_cvm_mapa_cobre_so_acoes_da_b3():
+    from services import cvm_service
+
+    assert cvm_service.comunicados_do_ativo("HGLG11") == [] and cvm_service.comunicados_do_ativo("NVDA") == []
+    assert len(set(cvm_service.CODIGOS_CVM.values())) == len(cvm_service.CODIGOS_CVM)
+
+
+def test_google_noticias_tira_o_veiculo_do_titulo(monkeypatch):
+    xml = (
+        '<rss><channel><item><title>Ibovespa sobe com Selic em queda - Valor Econômico</title>'
+        "<link>https://news.google.com/rss/articles/abc</link><pubDate>Fri, 13 Nov 2026 12:00:00 GMT</pubDate>"
+        '<source url="https://valor.globo.com">Valor Econômico</source></item></channel></rss>'
+    ).encode()
+    monkeypatch.setattr(news_service, "baixar", lambda *a, **k: xml)
+    [item] = news_service._ler_rss("https://news.google.com/rss/search?q=x", origem="Google Notícias")
+    assert item["titulo"] == "Ibovespa sobe com Selic em queda"
+    assert item["origem"] == "Google Notícias · Valor Econômico" and item["link"].startswith("https://news.google.com")
+
+
+def test_brapi_usa_cabecalho_e_lotes(monkeypatch):
+    from services import b3_service
+
+    chamadas = []
+
+    def falso(url, **kw):
+        chamadas.append((url, kw.get("headers", {})))
+        simbolos = url.rsplit("/", 1)[1].split(",")
+        import json as _j
+
+        return _j.dumps({"results": [{"symbol": s, "regularMarketPrice": 10.5, "regularMarketChangePercent": 1.2} for s in simbolos]}).encode()
+
+    monkeypatch.setattr(b3_service, "baixar", falso)
+    monkeypatch.setattr(b3_service, "_plano_gratuito", False)
+    monkeypatch.setenv("BRAPI_TOKEN", "segredo-de-teste")
+    tickers = [f"AAAA{i}" for i in range(23)]
+    dados = b3_service.cotacoes_brapi(tickers)
+    assert len(dados) == 23 and len(chamadas) == 3  # lotes de 10, 10 e 3
+    assert all("segredo-de-teste" not in url for url, _ in chamadas)  # token nunca na URL
+    assert all(h.get("Authorization") == "Bearer segredo-de-teste" for _, h in chamadas)
+    monkeypatch.setenv("BRAPI_TOKEN", "")
+    chamadas.clear()
+    assert set(b3_service.cotacoes_brapi(["PETR4", "BBAS3"])) == {"PETR4"}  # sem token: só os liberados
+
+
+def test_brapi_plano_gratuito_recusa_lote_e_passa_a_buscar_um_por_vez(monkeypatch):
+    import json as _j
+
+    import requests
+
+    from services import b3_service
+
+    def falso(url, **kw):
+        simbolos = url.rsplit("/", 1)[1].split(",")
+        if len(simbolos) > 1:
+            resp = requests.Response()
+            resp.status_code = 400
+            raise requests.HTTPError("plano", response=resp)
+        return _j.dumps({"results": [{"symbol": simbolos[0], "regularMarketPrice": 7.0}]}).encode()
+
+    monkeypatch.setattr(b3_service, "baixar", falso)
+    monkeypatch.setattr(b3_service, "_plano_gratuito", False)
+    monkeypatch.setenv("BRAPI_TOKEN", "x")
+    assert b3_service.brapi_aceita_lotes()
+    assert b3_service.cotacoes_brapi(["AAAA3", "BBBB3"]) == {}  # 1ª tentativa em lote é recusada
+    assert not b3_service.brapi_aceita_lotes()                  # agora sabe que o plano é gratuito
+    assert set(b3_service.cotacoes_brapi(["AAAA3", "BBBB3"])) == {"AAAA3", "BBBB3"}  # e busca um por vez

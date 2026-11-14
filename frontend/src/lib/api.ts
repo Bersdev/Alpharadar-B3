@@ -111,6 +111,15 @@ export interface AtivoAfetado {
   efeito: "beneficiado" | "prejudicado";
 }
 
+export interface ComunicadoCvm {
+  ticker: string;
+  empresa: string;
+  categoria: string;
+  assunto: string;
+  data: string;
+  link: string | null;
+}
+
 export interface Noticia {
   id: string;
   titulo: string;
@@ -128,7 +137,7 @@ export interface Noticia {
   fonte: string;
   origem?: string;
   ativos_afetados: AtivoAfetado[];
-  efeito_no_ativo?: "beneficiado" | "prejudicado";
+  efeito_no_ativo?: "beneficiado" | "prejudicado" | "neutro";
 }
 
 export interface ResumoAtivo {
@@ -178,6 +187,7 @@ export interface DetalheAtivo {
   risco: { volatilidade_anual: number | null; max_drawdown: number | null; retorno_periodo: number | null };
   premio_lci: PremioLci;
   noticias: Noticia[];
+  comunicados_cvm: ComunicadoCvm[];
   sentimento_noticias: number;
 }
 

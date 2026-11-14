@@ -33,7 +33,7 @@ from pydantic import BaseModel, Field
 load_dotenv()  # lê backend/.env (se existir) ANTES de importar os serviços
 
 from engine import ai_analyst, fixed_income, valuation  # noqa: E402
-from services import global_service, market_service, news_service  # noqa: E402
+from services import cvm_service, global_service, market_service, news_service  # noqa: E402
 from services.limites import Limitador  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -329,6 +329,7 @@ def detalhe_ativo(ticker: str) -> dict[str, Any]:
         "risco": market_service.estatisticas_risco(hist["precos"]),
         "premio_lci": fixed_income.premio_de_risco(av["dy_projetado"] or 0, 92, macro["cdi_anual"] / 100, ativo["mercado"]),
         "noticias": news_service.noticias_do_ativo(ativo["ticker"]),
+        "comunicados_cvm": cvm_service.comunicados_do_ativo(ativo["ticker"]),
         "sentimento_noticias": sent,
     }
 

@@ -15,6 +15,7 @@ o que deixa cada camada com uma responsabilidade só (princípio SRP).
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
@@ -23,6 +24,8 @@ from typing import Any
 
 import pandas as pd
 import requests
+
+from services.http_seguro import baixar
 
 logger = logging.getLogger("alpharadar.b3")
 
@@ -163,24 +166,70 @@ def historico_yfinance(ticker: str, periodo: str = "1y", simbolo: str | None = N
 # brapi.dev (fonte secundária)
 # ---------------------------------------------------------------------------
 
+TICKERS_BRAPI_SEM_TOKEN = ("PETR4", "VALE3", "ITUB4", "MGLU3")  # únicos liberados sem token
+LOTE_BRAPI = 10  # tickers por requisição (com token)
+
+
+def _lote_brapi(lote: list[str], cabecalhos: dict[str, str]) -> dict[str, dict[str, float]]:
+    """Uma requisição à brapi.dev (até ``LOTE_BRAPI`` tickers). Usa ``baixar``: teto de tamanho e só http(s)."""
+    conteudo = baixar(URL_BRAPI.format(tickers=",".join(lote)), timeout=8, headers=cabecalhos)
+    saida: dict[str, dict[str, float]] = {}
+    for item in json.loads(conteudo).get("results", []):
+        try:
+            preco = float(item["regularMarketPrice"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        saida[str(item["symbol"]).upper()] = {
+            "cotacao": round(preco, 2),
+            "variacao_dia": round(float(item.get("regularMarketChangePercent") or 0), 2),
+        }
+    return saida
+
+
+_plano_gratuito = False  # vira True quando a brapi recusa lotes ("seu plano permite no máximo 1 ativo")
+
+
+def brapi_configurada() -> bool:
+    return bool(os.getenv("BRAPI_TOKEN", "").strip())
+
+
+def brapi_aceita_lotes() -> bool:
+    """Com token e plano pago (lotes de até 10), a brapi pode ser a fonte principal da B3; no gratuito vira reserva."""
+    return brapi_configurada() and not _plano_gratuito
+
+
 def cotacoes_brapi(tickers: list[str]) -> dict[str, dict[str, float]]:
     """
-    Cotações via brapi.dev. Sem token, a API libera apenas alguns tickers de
-    teste; com ``BRAPI_TOKEN`` no .env funciona para todos.
+    Cotações via brapi.dev (B3). O token vai no cabeçalho ``Authorization: Bearer`` (nunca na URL, que
+    aparece em logs). Com ``BRAPI_TOKEN`` busca em lotes de 10, em paralelo; sem token só os 4 tickers
+    liberados pela brapi, um por vez. Falha de um lote não derruba os outros.
     """
     token = os.getenv("BRAPI_TOKEN", "").strip()
-    params = {"token": token} if token else {}
+    cabecalhos = {"User-Agent": "AlphaRadarB3/1.0"}
+    if token:
+        cabecalhos["Authorization"] = f"Bearer {token}"
+    if token and not _plano_gratuito:
+        lotes = [tickers[i:i + LOTE_BRAPI] for i in range(0, len(tickers), LOTE_BRAPI)]
+    elif token:
+        lotes = [[t] for t in tickers]  # plano gratuito: 1 ativo por requisição
+    else:
+        lotes = [[t] for t in tickers if t in TICKERS_BRAPI_SEM_TOKEN]
     resultado: dict[str, dict[str, float]] = {}
-    # Plano gratuito aceita 1 ticker por requisição.
-    for ticker in tickers:
+
+    def _um(lote: list[str]) -> dict[str, dict[str, float]]:
         try:
-            resp = requests.get(URL_BRAPI.format(tickers=ticker), params=params, timeout=5)
-            resp.raise_for_status()
-            item = resp.json()["results"][0]
-            resultado[ticker] = {
-                "cotacao": round(float(item["regularMarketPrice"]), 2),
-                "variacao_dia": round(float(item.get("regularMarketChangePercent") or 0), 2),
-            }
+            return _lote_brapi(lote, cabecalhos)
+        except requests.HTTPError as erro:
+            global _plano_gratuito
+            if len(lote) > 1 and erro.response is not None and erro.response.status_code == 400:
+                _plano_gratuito = True  # o plano não aceita lotes: nas próximas vezes busca 1 por requisição
+            logger.warning("brapi recusou (%d tickers): HTTP %s", len(lote), getattr(erro.response, "status_code", "?"))
+            return {}
         except Exception as erro:  # noqa: BLE001
-            logger.debug("brapi falhou para %s: %s", ticker, type(erro).__name__)
-    return resultado
+            logger.warning("brapi falhou (%d tickers): %s", len(lote), type(erro).__name__)
+            return {}
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        for parcial in pool.map(_um, lotes):
+            resultado.update(parcial)
+    return {t: resultado[t] for t in tickers if t in resultado}

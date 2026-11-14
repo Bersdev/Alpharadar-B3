@@ -95,7 +95,9 @@ Copie `backend/.env.example` para `backend/.env`:
 | Variável | Efeito |
 |---|---|
 | `ALPHARADAR_OFFLINE=1` | Força o modo offline (útil para apresentações sem internet) |
-| `BRAPI_TOKEN` | Libera todos os tickers na brapi.dev (fonte secundária de cotações) |
+| `BRAPI_TOKEN` | Token da brapi.dev. Plano pago: fonte principal da B3 (lotes de 10). Plano gratuito: reserva do Yahoo (1 ativo por pedido). Sem token: só PETR4, VALE3, ITUB4 e MGLU3 |
+| `GOOGLE_NEWS_QUERIES` / `GOOGLE_NEWS_OFF` | Temas do Google Notícias (separados por `\|`) ou desligá-lo |
+| `CVM_DESLIGADA` | Desliga os comunicados oficiais da CVM |
 | `NEWS_RSS_URLS` | Feeds RSS reais, separados por vírgula, no lugar das notícias de demonstração |
 | `ANTHROPIC_API_KEY` | Ativa o Claude no Analista IA; sem ela, o motor de regras em Python responde |
 
@@ -135,7 +137,9 @@ Fórmulas matemáticas são de domínio público (Lei 9.610/98, art. 8º, I). C�
 ## Fontes de dados
 
 - [yfinance](https://pypi.org/project/yfinance/) — cotações, histórico e dividendos da B3 (sufixo `.SA`)
-- [brapi.dev](https://brapi.dev/docs) — fonte secundária de cotações
+- [brapi.dev](https://brapi.dev/docs) — cotações da B3
+- [Google Notícias](https://news.google.com) — manchetes por busca (RSS)
+- [Dados abertos da CVM](https://dados.cvm.gov.br) — Fatos Relevantes e comunicados das companhias abertas
 - [API SGS do Banco Central](https://dadosabertos.bcb.gov.br/) — Selic (série 432), CDI (4389) e IPCA 12 meses (13522)
 
 Fundamentos como LPA, VPA e ROE ficam em `fallback_b3.json` e mudam a cada balanço trimestral; a cotação é atualizada ao vivo (cache de 5 minutos).

@@ -139,21 +139,34 @@ def _completar_mercado(ativo: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 def _cotacoes_ao_vivo(ativos: list[dict[str, Any]]) -> tuple[dict[str, dict[str, float]], str]:
-    """Tenta yfinance; completa o que faltar (só B3) com brapi.dev. Retorna (dados, fonte)."""
+    """
+    Cotações ao vivo. Com plano pago da brapi.dev (lotes de 10), as ações e FIIs da B3 vêm dela; no plano gratuito (1 ativo
+    por requisição, o que estouraria a cota) a brapi vira reserva: o yfinance vem primeiro e a brapi
+    completa só o que ele não trouxe. Ativos dos EUA vêm sempre do yfinance.
+    Retorna (dados, fonte).
+    """
     if modo_offline():
         return {}, "fallback"
     tickers = [a["ticker"] for a in ativos]
+    b3 = [a["ticker"] for a in ativos if a["mercado"] == "B3"]
     dados: dict[str, dict[str, float]] = {}
-    try:
-        dados = b3_service.cotacoes_yfinance(tickers, {a["ticker"]: simbolo_yahoo(a) for a in ativos})
-    except Exception as erro:  # noqa: BLE001
-        logger.warning("yfinance indisponível: %s", erro)
+    if b3 and b3_service.brapi_aceita_lotes():
+        try:
+            dados.update(b3_service.cotacoes_brapi(b3))
+        except Exception as erro:  # noqa: BLE001
+            logger.warning("brapi indisponível: %s", type(erro).__name__)
+    restantes = [a for a in ativos if a["ticker"] not in dados]
+    if restantes:
+        try:
+            dados.update(b3_service.cotacoes_yfinance([a["ticker"] for a in restantes], {a["ticker"]: simbolo_yahoo(a) for a in restantes}))
+        except Exception as erro:  # noqa: BLE001
+            logger.warning("yfinance indisponível: %s", erro)
     faltando = [a["ticker"] for a in ativos if a["ticker"] not in dados and a["mercado"] == "B3"]
     if faltando:
         try:
             dados.update(b3_service.cotacoes_brapi(faltando))
         except Exception as erro:  # noqa: BLE001
-            logger.warning("brapi indisponível: %s", erro)
+            logger.warning("brapi indisponível: %s", type(erro).__name__)
     if not dados:
         return {}, "fallback"
     return dados, ("ao_vivo" if len(dados) == len(tickers) else "misto")

@@ -143,8 +143,12 @@ function Conteudo({ d }: { d: DetalheAtivo }) {
           <ul className="divide-y divide-line">
             {d.noticias.map((n) => (
               <li key={n.id} className="flex gap-3 py-3 first:pt-0 last:pb-0">
-                <span className={`mt-0.5 text-xs font-semibold ${n.efeito_no_ativo === "beneficiado" ? "text-up" : "text-down"}`}>
-                  {n.efeito_no_ativo === "beneficiado" ? "▲" : "▼"}
+                <span
+                  className={`mt-0.5 text-xs font-semibold ${
+                    n.efeito_no_ativo === "beneficiado" ? "text-up" : n.efeito_no_ativo === "neutro" ? "text-muted" : "text-down"
+                  }`}
+                >
+                  {n.efeito_no_ativo === "beneficiado" ? "▲" : n.efeito_no_ativo === "neutro" ? "●" : "▼"}
                 </span>
                 <div>
                   <p className="font-medium">{n.titulo}</p>
@@ -155,6 +159,32 @@ function Conteudo({ d }: { d: DetalheAtivo }) {
           </ul>
         )}
       </Panel>
+
+      {d.comunicados_cvm.length > 0 && (
+        <Panel title={`Comunicados oficiais na CVM (${ativo.ticker})`}>
+          <ul className="divide-y divide-line text-sm">
+            {d.comunicados_cvm.map((c, i) => (
+              <li key={`${c.data}-${i}`} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2.5 first:pt-0 last:pb-0">
+                <span>
+                  <span className={`mr-2 rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${c.categoria === "Fato Relevante" ? "bg-brand text-white" : "bg-raised text-muted"}`}>
+                    {c.categoria}
+                  </span>
+                  {c.assunto || "Sem assunto informado"}
+                </span>
+                <span className="flex shrink-0 items-center gap-3 text-xs text-muted">
+                  {c.data.split("-").reverse().join("/")}
+                  {c.link && (
+                    <a href={c.link} target="_blank" rel="noopener noreferrer" className="font-medium text-brand hover:underline">
+                      Abrir documento
+                    </a>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-xs text-muted">Fonte: dados abertos da CVM (documentos enviados pela própria empresa ao mercado).</p>
+        </Panel>
+      )}
 
       <AnaliseIA key={ativo.ticker} ticker={ativo.ticker} />
     </div>

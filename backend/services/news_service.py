@@ -34,7 +34,10 @@ from typing import Any
 
 import requests
 
-from services import market_service, news_apis
+from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import quote_plus
+
+from services import cvm_service, market_service, news_apis
 from services.http_seguro import baixar, url_http_valida
 
 logger = logging.getLogger("alpharadar.news")
@@ -270,7 +273,7 @@ def _montar_item(titulo: str, resumo: str, data_iso: str, link: str | None, orig
     }
 
 
-def _ler_rss(url: str, limite: int = 15) -> list[dict[str, Any]]:
+def _ler_rss(url: str, limite: int = 15, origem: str = "RSS") -> list[dict[str, Any]]:
     conteudo = baixar(url, timeout=6, headers={"User-Agent": "AlphaRadarB3/1.0"})  # teto de 2 MB
     itens = []
     for item in ET.fromstring(conteudo).iter("item"):
@@ -281,11 +284,53 @@ def _ler_rss(url: str, limite: int = 15) -> list[dict[str, Any]]:
             data_iso = parsedate_to_datetime(data_txt).isoformat()
         except (TypeError, ValueError):
             data_iso = data_txt
-        novo = _montar_item(titulo, resumo, data_iso, item.findtext("link"), "RSS")
+        fonte_item = (item.findtext("source") or "").strip()[:60]  # Google Notícias informa o veículo aqui
+        if fonte_item and origem != "RSS":
+            titulo = re.sub(rf"\s+-\s+{re.escape(fonte_item)}$", "", titulo)  # tira o " - Veículo" do fim do título
+        novo = _montar_item(titulo, resumo, data_iso, item.findtext("link"), f"{origem} · {fonte_item}" if fonte_item and origem != "RSS" else origem)
         if novo:
             itens.append(novo)
         if len(itens) >= limite:
             break
+    return itens
+
+
+CONSULTAS_GOOGLE_PADRAO = (
+    "Ibovespa", "bolsa de valores B3", "Selic Copom juros", "dólar câmbio", "dividendos ações", "fundos imobiliários FII",
+)
+
+
+def _ler_google_noticias() -> list[dict[str, Any]]:
+    """
+    Google Notícias (feed RSS de busca, pt-BR), uma busca por tema, em paralelo. Só as últimas 48 h.
+    ``GOOGLE_NEWS_QUERIES`` (separadas por ``|``) troca os temas; ``GOOGLE_NEWS_OFF=1`` desliga.
+    """
+    if os.getenv("GOOGLE_NEWS_OFF", "").lower() in ("1", "true", "sim"):
+        return []
+    bruto = os.getenv("GOOGLE_NEWS_QUERIES", "")
+    consultas = [q.strip()[:80] for q in bruto.split("|") if q.strip()][:10] or list(CONSULTAS_GOOGLE_PADRAO)
+
+    def _uma(q: str) -> list[dict[str, Any]]:
+        url = f"https://news.google.com/rss/search?q={quote_plus(q + ' when:2d')}&hl=pt-BR&gl=BR&ceid=BR:pt-419"
+        try:
+            return _ler_rss(url, limite=10, origem="Google Notícias")
+        except Exception as erro:  # noqa: BLE001
+            logger.warning("Google Notícias indisponível (%s): %s", q, type(erro).__name__)
+            return []
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        return [n for lote in pool.map(_uma, consultas) for n in lote]
+
+
+def _ler_cvm() -> list[dict[str, Any]]:
+    """Fatos Relevantes recentes da CVM como itens do radar. Documento oficial: impacto alto, sentimento pelo assunto."""
+    itens = []
+    for doc in cvm_service.noticias_oficiais(10):
+        titulo = cvm_service.titulo_do_documento(doc)
+        novo = _montar_item(titulo, "Documento oficial enviado à CVM pela companhia.", doc["data"], doc["link"], "CVM", filtrar=False)
+        if novo:
+            novo.update({"categoria": "Fato Relevante (CVM)", "impacto": "alto", "ticker_cvm": doc["ticker"]})
+            itens.append(novo)
     return itens
 
 
@@ -300,6 +345,7 @@ def _ler_apis() -> list[dict[str, Any]]:
 
 def _buscar_rss_e_fallback() -> list[dict[str, Any]]:
     noticias: list[dict[str, Any]] = []
+    oficiais: list[dict[str, Any]] = []
     urls = [u.strip() for u in os.getenv("NEWS_RSS_URLS", "").split(",") if u.strip() and url_http_valida(u)]
     if urls and not market_service.modo_offline():
         for url in urls:
@@ -309,10 +355,15 @@ def _buscar_rss_e_fallback() -> list[dict[str, Any]]:
                 logger.warning("RSS indisponível (%s): %s", url, erro)
     if not market_service.modo_offline():
         noticias.extend(_ler_apis())
-    if noticias:
-        # Mesma manchete em feeds diferentes aparece uma vez só; mantém as 40 mais recentes.
+        noticias.extend(_ler_google_noticias())
+        oficiais = _ler_cvm()
+    if noticias or oficiais:
+        # Mesma manchete em feeds diferentes aparece uma vez só. Os documentos da CVM são bem menos frequentes
+        # que as manchetes: reservamos 6 vagas para eles, senão as notícias do dia os empurrariam para fora.
         unicas = {n["id"]: n for n in noticias}
-        return sorted(unicas.values(), key=lambda n: str(n.get("data", "")), reverse=True)[:40]
+        por_data = lambda n: str(n.get("data", ""))  # noqa: E731
+        recentes = sorted(unicas.values(), key=por_data, reverse=True)[:54]
+        return sorted(recentes + sorted(oficiais, key=por_data, reverse=True)[:6], key=por_data, reverse=True)
     for n in market_service.carregar_fallback()["noticias"]:
         n["fonte"] = "demonstracao"
         noticias.append(n)
@@ -365,11 +416,15 @@ def sentimento_por_ativo() -> dict[str, float]:
 
 def noticias_do_ativo(ticker: str) -> list[dict[str, Any]]:
     ticker = ticker.upper()
-    return [
-        {**n, "efeito_no_ativo": "beneficiado" if ticker in n.get("beneficiados", []) else "prejudicado"}
-        for n in feed_noticias()
-        if ticker in n.get("beneficiados", []) or ticker in n.get("prejudicados", [])
-    ]
+    saida = []
+    for n in feed_noticias():
+        if ticker in n.get("beneficiados", []):
+            saida.append({**n, "efeito_no_ativo": "beneficiado"})
+        elif ticker in n.get("prejudicados", []):
+            saida.append({**n, "efeito_no_ativo": "prejudicado"})
+        elif n.get("ticker_cvm") == ticker:  # documento oficial da própria empresa: relevante, mas sem direção
+            saida.append({**n, "efeito_no_ativo": "neutro"})
+    return saida
 
 
 def resumo_radar() -> dict[str, Any]:
