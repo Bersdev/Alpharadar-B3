@@ -339,50 +339,105 @@ def test_google_noticias_tira_o_veiculo_do_titulo(monkeypatch):
     assert item["origem"] == "Google Notícias · Valor Econômico" and item["link"].startswith("https://news.google.com")
 
 
-def test_brapi_usa_cabecalho_e_lotes(monkeypatch):
+def _resposta_v2(simbolos, preco=10.5):
+    import json as _j
+
+    return _j.dumps({"results": [
+        {"requestedSymbol": x, "symbol": x, "changed": False, "data": {"regularMarketPrice": preco, "regularMarketChangePercent": 1.2}}
+        for x in simbolos
+    ]}).encode()
+
+
+def _simbolos(url):
+    from urllib.parse import parse_qs, urlparse
+
+    return parse_qs(urlparse(url).query)["symbols"][0].split(",")
+
+
+def _erro_http(status, corpo=b"", cabecalhos=None):
+    import requests
+
+    resp = requests.Response()
+    resp.status_code = status
+    resp.headers.update(cabecalhos or {})
+    erro = requests.HTTPError(str(status), response=resp)
+    erro.corpo_erro = corpo
+    return erro
+
+
+@pytest.fixture()
+def brapi_limpa(monkeypatch):
     from services import b3_service
 
+    monkeypatch.setattr(b3_service, "_plano_gratuito", False)
+    monkeypatch.setattr(b3_service, "_pausa_ate", 0.0)
+    return b3_service
+
+
+def test_brapi_v2_usa_cabecalho_symbols_e_lotes(monkeypatch, brapi_limpa):
     chamadas = []
 
     def falso(url, **kw):
         chamadas.append((url, kw.get("headers", {})))
-        simbolos = url.rsplit("/", 1)[1].split(",")
-        import json as _j
+        return _resposta_v2(_simbolos(url))
 
-        return _j.dumps({"results": [{"symbol": s, "regularMarketPrice": 10.5, "regularMarketChangePercent": 1.2} for s in simbolos]}).encode()
-
-    monkeypatch.setattr(b3_service, "baixar", falso)
-    monkeypatch.setattr(b3_service, "_plano_gratuito", False)
+    monkeypatch.setattr(brapi_limpa, "baixar", falso)
     monkeypatch.setenv("BRAPI_TOKEN", "segredo-de-teste")
     tickers = [f"AAAA{i}" for i in range(23)]
-    dados = b3_service.cotacoes_brapi(tickers)
+    dados = brapi_limpa.cotacoes_brapi(tickers)
     assert len(dados) == 23 and len(chamadas) == 3  # lotes de 10, 10 e 3
+    assert all("/api/v2/stocks/quote?symbols=" in url for url, _ in chamadas)
     assert all("segredo-de-teste" not in url for url, _ in chamadas)  # token nunca na URL
     assert all(h.get("Authorization") == "Bearer segredo-de-teste" for _, h in chamadas)
     monkeypatch.setenv("BRAPI_TOKEN", "")
-    chamadas.clear()
-    assert set(b3_service.cotacoes_brapi(["PETR4", "BBAS3"])) == {"PETR4"}  # sem token: só os liberados
+    assert set(brapi_limpa.cotacoes_brapi(["PETR4", "BBAS3"])) == {"PETR4"}  # sem token: só os liberados
 
 
-def test_brapi_plano_gratuito_recusa_lote_e_passa_a_buscar_um_por_vez(monkeypatch):
-    import json as _j
+def test_brapi_plano_gratuito_recusa_lote_e_passa_a_buscar_um_por_vez(monkeypatch, brapi_limpa):
+    def falso(url, **kw):
+        simbolos = _simbolos(url)
+        if len(simbolos) > 1:
+            raise _erro_http(400, b'{"code":"QUOTES_PER_REQUEST_EXCEEDED"}')
+        return _resposta_v2(simbolos, 7.0)
 
-    import requests
+    monkeypatch.setattr(brapi_limpa, "baixar", falso)
+    monkeypatch.setenv("BRAPI_TOKEN", "x")
+    assert brapi_limpa.brapi_aceita_lotes()
+    assert brapi_limpa.cotacoes_brapi(["AAAA3", "BBBB3"]) == {}  # 1ª tentativa em lote é recusada
+    assert not brapi_limpa.brapi_aceita_lotes()                  # agora sabe que o plano é gratuito
+    assert set(brapi_limpa.cotacoes_brapi(["AAAA3", "BBBB3"])) == {"AAAA3", "BBBB3"}
 
-    from services import b3_service
+
+def test_brapi_429_respeita_retry_after_e_nao_insiste(monkeypatch, brapi_limpa):
+    chamadas = []
 
     def falso(url, **kw):
-        simbolos = url.rsplit("/", 1)[1].split(",")
-        if len(simbolos) > 1:
-            resp = requests.Response()
-            resp.status_code = 400
-            raise requests.HTTPError("plano", response=resp)
-        return _j.dumps({"results": [{"symbol": simbolos[0], "regularMarketPrice": 7.0}]}).encode()
+        chamadas.append(url)
+        raise _erro_http(429, cabecalhos={"Retry-After": "120"})
 
-    monkeypatch.setattr(b3_service, "baixar", falso)
-    monkeypatch.setattr(b3_service, "_plano_gratuito", False)
+    monkeypatch.setattr(brapi_limpa, "baixar", falso)
     monkeypatch.setenv("BRAPI_TOKEN", "x")
-    assert b3_service.brapi_aceita_lotes()
-    assert b3_service.cotacoes_brapi(["AAAA3", "BBBB3"]) == {}  # 1ª tentativa em lote é recusada
-    assert not b3_service.brapi_aceita_lotes()                  # agora sabe que o plano é gratuito
-    assert set(b3_service.cotacoes_brapi(["AAAA3", "BBBB3"])) == {"AAAA3", "BBBB3"}  # e busca um por vez
+    assert brapi_limpa.cotacoes_brapi(["AAAA3"]) == {}
+    assert 100 < brapi_limpa._pausa_ate - time.monotonic() <= 120
+    assert brapi_limpa.cotacoes_brapi(["AAAA3"]) == {} and len(chamadas) == 1  # em pausa: não chamou de novo
+
+
+def test_brapi_401_pausa_e_404_nao_e_erro(monkeypatch, brapi_limpa):
+    monkeypatch.setenv("BRAPI_TOKEN", "x")
+    monkeypatch.setattr(brapi_limpa, "baixar", lambda url, **kw: (_ for _ in ()).throw(_erro_http(404, b'{"code":"NOT_FOUND"}')))
+    assert brapi_limpa.cotacoes_brapi(["ZZZZ9"]) == {} and brapi_limpa._pausa_ate == 0.0
+    monkeypatch.setattr(brapi_limpa, "baixar", lambda url, **kw: (_ for _ in ()).throw(_erro_http(401)))
+    assert brapi_limpa.cotacoes_brapi(["AAAA3"]) == {} and brapi_limpa._pausa_ate > time.monotonic()
+
+
+def test_brapi_ignora_campos_null_e_usa_o_ticker_pedido(monkeypatch, brapi_limpa):
+    import json as _j
+
+    corpo = _j.dumps({"results": [
+        {"requestedSymbol": "OLDX3", "symbol": "NEWX3", "changed": True, "data": {"regularMarketPrice": 5.0, "regularMarketChangePercent": None}},
+        {"requestedSymbol": "SEMPRECO3", "symbol": "SEMPRECO3", "data": {"regularMarketPrice": None}},
+        {"requestedSymbol": "SEMDATA3", "symbol": "SEMDATA3", "data": None},
+    ]}).encode()
+    monkeypatch.setattr(brapi_limpa, "baixar", lambda url, **kw: corpo)
+    monkeypatch.setenv("BRAPI_TOKEN", "x")
+    assert brapi_limpa.cotacoes_brapi(["OLDX3", "SEMPRECO3", "SEMDATA3"]) == {"OLDX3": {"cotacao": 5.0, "variacao_dia": 0.0}}

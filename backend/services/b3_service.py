@@ -18,9 +18,11 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FuturesTimeout
 from typing import Any
+from urllib.parse import urlencode
 
 import pandas as pd
 import requests
@@ -30,7 +32,7 @@ from services.http_seguro import baixar
 logger = logging.getLogger("alpharadar.b3")
 
 TIMEOUT_YFINANCE = 12  # segundos — evita que a API "trave" esperando o Yahoo
-URL_BRAPI = "https://brapi.dev/api/quote/{tickers}"
+URL_BRAPI_V2 = "https://brapi.dev/api/v2/stocks/quote"
 
 # Índices e moedas no Yahoo Finance
 SIMBOLOS_MACRO: dict[str, str] = {
@@ -163,30 +165,20 @@ def historico_yfinance(ticker: str, periodo: str = "1y", simbolo: str | None = N
 
 
 # ---------------------------------------------------------------------------
-# brapi.dev (fonte secundária)
+# brapi.dev — API v2, operação GET /api/v2/stocks/quote?symbols=PETR4,VALE3
 # ---------------------------------------------------------------------------
+# Docs: https://brapi.dev/llms.txt e https://brapi.dev/openapi.json. Resposta (por ticker):
+#   {"requestedSymbol": "PETR4", "symbol": "PETR4", "changed": false,
+#    "data": {"regularMarketPrice": 45.3, "regularMarketChangePercent": 1.34, ...}}
+# Erros tratados: 400 QUOTES_PER_REQUEST_EXCEEDED (plano sem lotes), 401 (token inválido), 403 (plano não
+# inclui o dado), 404 (nenhum ticker encontrado), 429 (cota/limite: respeita ``Retry-After``).
 
 TICKERS_BRAPI_SEM_TOKEN = ("PETR4", "VALE3", "ITUB4", "MGLU3")  # únicos liberados sem token
-LOTE_BRAPI = 10  # tickers por requisição (com token)
+LOTE_BRAPI = 10          # tickers por chamada (planos com lotes; o gratuito aceita 1)
+PAUSA_MAXIMA_BRAPI = 300  # nunca fica mais de 5 min sem tentar a brapi, mesmo com Retry-After enorme
 
-
-def _lote_brapi(lote: list[str], cabecalhos: dict[str, str]) -> dict[str, dict[str, float]]:
-    """Uma requisição à brapi.dev (até ``LOTE_BRAPI`` tickers). Usa ``baixar``: teto de tamanho e só http(s)."""
-    conteudo = baixar(URL_BRAPI.format(tickers=",".join(lote)), timeout=8, headers=cabecalhos)
-    saida: dict[str, dict[str, float]] = {}
-    for item in json.loads(conteudo).get("results", []):
-        try:
-            preco = float(item["regularMarketPrice"])
-        except (KeyError, TypeError, ValueError):
-            continue
-        saida[str(item["symbol"]).upper()] = {
-            "cotacao": round(preco, 2),
-            "variacao_dia": round(float(item.get("regularMarketChangePercent") or 0), 2),
-        }
-    return saida
-
-
-_plano_gratuito = False  # vira True quando a brapi recusa lotes ("seu plano permite no máximo 1 ativo")
+_plano_gratuito = False   # vira True quando a brapi recusa lotes (QUOTES_PER_REQUEST_EXCEEDED)
+_pausa_ate = 0.0          # time.monotonic() até quando NÃO chamar a brapi (após 429, 401 ou 403)
 
 
 def brapi_configurada() -> bool:
@@ -198,12 +190,64 @@ def brapi_aceita_lotes() -> bool:
     return brapi_configurada() and not _plano_gratuito
 
 
+def _pausar_brapi(segundos: float) -> None:
+    global _pausa_ate
+    _pausa_ate = time.monotonic() + min(max(segundos, 1.0), PAUSA_MAXIMA_BRAPI)
+
+
+def _numero(valor: Any) -> float | None:
+    """Campo da brapi pode vir null ou texto: devolve float ou None, nunca levanta exceção."""
+    try:
+        return None if valor is None else float(valor)
+    except (TypeError, ValueError):
+        return None
+
+
+def _interpretar_v2(corpo: bytes) -> dict[str, dict[str, float]]:
+    """results[] -> {ticker: {cotacao, variacao_dia}}. Ignora itens sem preço (campo null)."""
+    saida: dict[str, dict[str, float]] = {}
+    for item in json.loads(corpo).get("results") or []:
+        dados = item.get("data") or {}
+        preco = _numero(dados.get("regularMarketPrice"))
+        simbolo = str(item.get("requestedSymbol") or item.get("symbol") or "").upper()
+        if preco is None or not simbolo:
+            continue
+        variacao = _numero(dados.get("regularMarketChangePercent")) or 0.0
+        saida[simbolo] = {"cotacao": round(preco, 2), "variacao_dia": round(variacao, 2)}
+    return saida
+
+
+def _lote_brapi(lote: list[str], cabecalhos: dict[str, str]) -> dict[str, dict[str, float]]:
+    """Uma chamada v2 (até ``LOTE_BRAPI`` tickers em ``symbols``). Usa ``baixar``: teto de tamanho e só http(s)."""
+    global _plano_gratuito
+    url = f"{URL_BRAPI_V2}?{urlencode({'symbols': ','.join(lote)})}"
+    try:
+        return _interpretar_v2(baixar(url, timeout=8, headers=cabecalhos))
+    except requests.HTTPError as erro:
+        status = erro.response.status_code if erro.response is not None else 0
+        corpo = getattr(erro, "corpo_erro", b"")
+        if status == 400 and b"QUOTES_PER_REQUEST_EXCEEDED" in corpo:
+            _plano_gratuito = True  # o plano não aceita lotes: nas próximas vezes busca 1 por chamada
+        elif status == 404:
+            pass  # nenhum dos tickers existe na brapi: não é falha, só não há cotação
+        elif status == 429:
+            espera = erro.response.headers.get("Retry-After", "")
+            _pausar_brapi(float(espera) if espera.isdigit() else 60.0)
+        elif status in (401, 403):
+            _pausar_brapi(PAUSA_MAXIMA_BRAPI)  # token inválido ou plano sem acesso: repetir só gasta cota
+        logger.warning("brapi recusou %d ticker(s): HTTP %s", len(lote), status)
+        return {}
+
+
 def cotacoes_brapi(tickers: list[str]) -> dict[str, dict[str, float]]:
     """
-    Cotações via brapi.dev (B3). O token vai no cabeçalho ``Authorization: Bearer`` (nunca na URL, que
-    aparece em logs). Com ``BRAPI_TOKEN`` busca em lotes de 10, em paralelo; sem token só os 4 tickers
-    liberados pela brapi, um por vez. Falha de um lote não derruba os outros.
+    Cotações via brapi.dev v2. O token (``BRAPI_TOKEN``) vai no cabeçalho ``Authorization: Bearer``, nunca na
+    URL. Com plano de lotes busca 10 tickers por chamada, em paralelo; no gratuito, 1 por chamada; sem token,
+    só os 4 tickers liberados. Após 429/401/403 fica em pausa (respeitando Retry-After) em vez de insistir.
+    Campos null são ignorados; falha de um lote não derruba os outros.
     """
+    if time.monotonic() < _pausa_ate:
+        return {}
     token = os.getenv("BRAPI_TOKEN", "").strip()
     cabecalhos = {"User-Agent": "AlphaRadarB3/1.0"}
     if token:
@@ -211,22 +255,18 @@ def cotacoes_brapi(tickers: list[str]) -> dict[str, dict[str, float]]:
     if token and not _plano_gratuito:
         lotes = [tickers[i:i + LOTE_BRAPI] for i in range(0, len(tickers), LOTE_BRAPI)]
     elif token:
-        lotes = [[t] for t in tickers]  # plano gratuito: 1 ativo por requisição
+        lotes = [[t] for t in tickers]
     else:
         lotes = [[t] for t in tickers if t in TICKERS_BRAPI_SEM_TOKEN]
     resultado: dict[str, dict[str, float]] = {}
 
     def _um(lote: list[str]) -> dict[str, dict[str, float]]:
+        if time.monotonic() < _pausa_ate:  # outro lote já levou 429
+            return {}
         try:
             return _lote_brapi(lote, cabecalhos)
-        except requests.HTTPError as erro:
-            global _plano_gratuito
-            if len(lote) > 1 and erro.response is not None and erro.response.status_code == 400:
-                _plano_gratuito = True  # o plano não aceita lotes: nas próximas vezes busca 1 por requisição
-            logger.warning("brapi recusou (%d tickers): HTTP %s", len(lote), getattr(erro.response, "status_code", "?"))
-            return {}
         except Exception as erro:  # noqa: BLE001
-            logger.warning("brapi falhou (%d tickers): %s", len(lote), type(erro).__name__)
+            logger.warning("brapi falhou (%d ticker(s)): %s", len(lote), type(erro).__name__)
             return {}
 
     with ThreadPoolExecutor(max_workers=4) as pool:

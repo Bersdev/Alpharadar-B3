@@ -33,7 +33,15 @@ def baixar(url: str, *, timeout: float = 8, max_bytes: int = LIMITE_PADRAO, **kw
     if not url_http_valida(url):
         raise ValueError("URL inválida: só http(s)")
     with requests.get(url, timeout=timeout, stream=True, **kwargs) as resp:
-        resp.raise_for_status()
+        try:
+            resp.raise_for_status()
+        except requests.HTTPError as erro:
+            # Guarda um pedaço do corpo do erro (até 4 KB): APIs como a brapi explicam a causa ali ("code").
+            try:
+                erro.corpo_erro = resp.raw.read(4096, decode_content=True)  # type: ignore[attr-defined]
+            except Exception:  # noqa: BLE001
+                erro.corpo_erro = b""  # type: ignore[attr-defined]
+            raise
         anunciado = resp.headers.get("content-length")
         if anunciado and anunciado.isdigit() and int(anunciado) > max_bytes:
             raise RespostaGrande(f"resposta anuncia {anunciado} bytes")

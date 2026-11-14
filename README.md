@@ -137,7 +137,7 @@ Fórmulas matemáticas são de domínio público (Lei 9.610/98, art. 8º, I). C�
 ## Fontes de dados
 
 - [yfinance](https://pypi.org/project/yfinance/) — cotações, histórico e dividendos da B3 (sufixo `.SA`)
-- [brapi.dev](https://brapi.dev/docs) — cotações da B3
+- [brapi.dev](https://brapi.dev/docs) — cotações da B3 (API v2, `/api/v2/stocks/quote?symbols=`)
 - [Google Notícias](https://news.google.com) — manchetes por busca (RSS)
 - [Dados abertos da CVM](https://dados.cvm.gov.br) — Fatos Relevantes e comunicados das companhias abertas
 - [API SGS do Banco Central](https://dadosabertos.bcb.gov.br/) — Selic (série 432), CDI (4389) e IPCA 12 meses (13522)
