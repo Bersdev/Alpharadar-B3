@@ -22,6 +22,24 @@ function definirTema(t: Tema) {
   window.dispatchEvent(new Event("alpharadar-tema"));
 }
 
+/** Botão único (sol/lua) para a barra superior: alterna o tema sem depender do menu lateral. */
+export function ThemeToggleCompacto() {
+  const tema = useSyncExternalStore(assinar, lerTema, () => "light" as Tema);
+  const proximo: Tema = tema === "dark" ? "light" : "dark";
+  const rotulo = proximo === "dark" ? "Ativar tema escuro OLED" : "Ativar tema claro";
+  return (
+    <button
+      type="button"
+      onClick={() => definirTema(proximo)}
+      aria-label={rotulo}
+      title={rotulo}
+      className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-line bg-raised text-muted hover:text-text"
+    >
+      {tema === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+    </button>
+  );
+}
+
 /** Seletor claro/escuro. O tema escuro é OLED (preto absoluto). A escolha fica salva no navegador. */
 export function ThemeToggle() {
   const tema = useSyncExternalStore(assinar, lerTema, () => "light" as Tema);

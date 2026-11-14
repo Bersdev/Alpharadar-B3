@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Search, Sparkles } from "lucide-react";
 import { TICKERS } from "@/lib/tickers";
+import { ThemeToggleCompacto } from "./ThemeToggle";
 
 const TITULOS: Record<string, [string, string]> = {
   "/dashboard": ["Visão geral", "do mercado"],
@@ -90,6 +91,8 @@ export function Topbar() {
           </p>
         )}
       </form>
+
+      <ThemeToggleCompacto />
 
       <Link
         href="/analista-ia"
