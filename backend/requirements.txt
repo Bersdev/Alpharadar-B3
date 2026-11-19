@@ -22,4 +22,4 @@ defusedxml==0.7.1       # leitura SEGURA de feeds RSS (XML) externos
 
 # --- Configuração e IA ---
 python-dotenv==1.2.4    # lê o arquivo .env (chaves de API opcionais)
-anthropic==2.7.0        # SDK oficial da Anthropic (opcional: só usado se houver ANTHROPIC_API_KEY)
+anthropic==2.8.0        # SDK oficial da Anthropic (opcional: só usado se houver ANTHROPIC_API_KEY)
