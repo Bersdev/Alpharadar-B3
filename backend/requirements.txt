@@ -13,7 +13,7 @@ uvicorn==0.54.0         # servidor ASGI que executa o FastAPI
 
 # --- Dados e matemática ---
 pandas==3.1.1           # tabelas (DataFrames) para histórico e simulações
-numpy==2.5.4            # cálculos vetoriais
+numpy==2.5.5            # cálculos vetoriais
 
 # --- Coleta de dados de mercado ---
 yfinance==1.8.0         # cotações e dividendos da B3 e dos EUA
