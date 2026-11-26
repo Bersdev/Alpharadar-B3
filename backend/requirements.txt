@@ -8,7 +8,7 @@
 # ============================================================
 
 # --- Servidor web ---
-fastapi==0.162.2        # framework da API REST (gera /docs automaticamente)
+fastapi==0.165.0        # framework da API REST (gera /docs automaticamente)
 uvicorn==0.54.0         # servidor ASGI que executa o FastAPI
 
 # --- Dados e matemática ---
